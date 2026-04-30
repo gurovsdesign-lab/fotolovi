@@ -23,13 +23,13 @@ export async function addCreditsAction(formData: FormData) {
     user_id: userId,
     amount: (current?.amount ?? 0) + amount,
     updated_at: new Date().toISOString(),
-  });
+  } as any);
 
   await supabase.from("credit_transactions").insert({
     user_id: userId,
     amount,
     reason: "Начисление администратором",
-  });
+  } as any);
 
   revalidatePath("/admin");
 }
