@@ -114,7 +114,7 @@ export function PhotoUploader({
     console.log("PHOTO INSERT BEFORE");
     console.log("PHOTO INSERT PAYLOAD", insertPayload);
 
-    const { data: insertData, error: insertError } = await supabase.from("photos").insert(insertPayload);
+    const { data: insertData, error: insertError } = await supabase.from("photos").insert(insertPayload as any)
 
     console.log("PHOTO INSERT RESULT", insertData);
     console.log("PHOTO INSERT ERROR", insertError);
