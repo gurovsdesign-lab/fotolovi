@@ -34,7 +34,7 @@ export default async function DashboardPage() {
           <section className="grid gap-4">
             <h2 className="text-2xl font-semibold text-ink">Ваши мероприятия</h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {events.map((event) => (
+              {(events as any[]).map((event) => (
                 <EventCard key={event.id} event={event} />
               ))}
             </div>
