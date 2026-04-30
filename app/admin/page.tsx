@@ -47,7 +47,7 @@ export default async function AdminPage() {
               </tr>
             </thead>
             <tbody>
-              {profiles.map((profile) => (
+              {(profiles as any[]).map((profile) => (
                 <tr key={profile.id} className="border-t border-black/5">
                   <td className="py-3">{profile.email}</td>
                   <td>{profile.role}</td>
@@ -73,7 +73,7 @@ export default async function AdminPage() {
         <Card>
           <h2 className="text-2xl font-semibold">Последние фото</h2>
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-            {photos.map((photo) => (
+            {(photos as any[]).map((photo) => (
               <div key={photo.id} className="overflow-hidden rounded-2xl border border-black/5">
                 <div className="relative aspect-square">
                   <Image src={photo.public_url} alt="Фото" fill className="object-cover" sizes="180px" />
