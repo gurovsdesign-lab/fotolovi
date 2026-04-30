@@ -13,15 +13,17 @@ export async function addCreditsAction(formData: FormData) {
   if (!userId || !Number.isFinite(amount) || amount === 0) return;
 
   const supabase = await createServerSupabaseClient();
-  const { data: current } = await supabase
-    .from("credits")
-    .select("amount")
-    .eq("user_id", userId)
-    .single();
+  const { data }: any = await supabase
+  .from("credits")
+  .select("amount")
+  .eq("user_id", userId)
+  .single();
+
+const current = data;
 
   await supabase.from("credits").upsert({
     user_id: userId,
-    amount: (current?.amount ?? 0) + amount,
+    amount: ((current as any)?.amount ?? 0) + amount,
     updated_at: new Date().toISOString(),
   } as any);
 
