@@ -46,7 +46,7 @@ export async function createEventAction(
       slug: createSlug(title),
       is_paid: useCredit,
       photo_limit: useCredit ? 1000 : FREE_EVENT_PHOTO_LIMIT,
-    })
+    } as any)
     .select("id")
     .single();
 
@@ -56,11 +56,10 @@ export async function createEventAction(
     }
 
   if (useCredit && creditAny) {
-    await supabase
-      .from("credits")
+    await (supabase.from("credits") as any)
       .update({ amount: creditAny.amount - 1, updated_at: new Date().toISOString() } as any)
       .eq("user_id", user.id);
-    await supabase.from("credit_transactions").insert({
+    await (supabase.from("credit_transactions") as any).insert({
       user_id: user.id,
       amount: -1,
       reason: `Создание мероприятия: ${title}`,
@@ -68,7 +67,8 @@ export async function createEventAction(
   }
 
   revalidatePath("/dashboard");
-  redirect(`/dashboard/events/${data.id}`);
+  const eventAny = data as any;
+  redirect(`/dashboard/events/${eventAny.id}`);
 }
 
 export async function deleteEventAction(formData: FormData) {

@@ -14,7 +14,7 @@ export async function togglePhotoVisibilityAction(formData: FormData) {
   if (!photoId || !eventId) return;
 
   const supabase = await createServerSupabaseClient();
-  await supabase.from("photos").update({ is_hidden: !isHidden }).eq("id", photoId);
+  await (supabase.from("photos") as any).update({ is_hidden: !isHidden }).eq("id", photoId);
 
   revalidatePath(`/dashboard/events/${eventId}`);
 }

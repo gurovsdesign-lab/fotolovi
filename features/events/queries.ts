@@ -12,8 +12,9 @@ export async function getUserEvents(userId: string): Promise<EventWithPhotoCount
 
   if (error || !events) return [];
 
+  const eventsAny = events as any[];
   const withCounts = await Promise.all(
-    events.map(async (event) => {
+    eventsAny.map(async (event) => {
       const { count } = await supabase
         .from("photos")
         .select("*", { count: "exact", head: true })
@@ -39,7 +40,7 @@ export async function getEventById(id: string, userId: string): Promise<Event> {
     .single();
 
   if (error || !data) notFound();
-  return data;
+  return data as any;
 }
 
 export async function getPublicEvent(slug: string): Promise<Event> {
@@ -47,5 +48,5 @@ export async function getPublicEvent(slug: string): Promise<Event> {
   const { data, error } = await supabase.from("events").select("*").eq("slug", slug).single();
 
   if (error || !data) notFound();
-  return data;
+  return data as any;
 }
