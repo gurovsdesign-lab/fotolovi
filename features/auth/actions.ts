@@ -61,11 +61,14 @@ export async function signUpAction(_prevState: AuthState, formData: FormData): P
       full_name: fullName || null,
       role: "user",
     } as any);
-    await supabase.from("credits").upsert({ user_id: data.user.id, amount: 0 });
+  
+    await supabase.from("credits").upsert({
+      user_id: data.user.id,
+      amount: 0,
+    } as any);
   }
-
+  
   redirect("/dashboard");
-}
 
 export async function signOutAction() {
   const supabase = await createServerSupabaseClient();
