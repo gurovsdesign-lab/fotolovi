@@ -60,7 +60,7 @@ export async function signUpAction(_prevState: AuthState, formData: FormData): P
       email,
       full_name: fullName || null,
       role: "user",
-    });
+    } as any);
     await supabase.from("credits").upsert({ user_id: data.user.id, amount: 0 });
   }
 
