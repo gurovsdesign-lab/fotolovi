@@ -31,7 +31,9 @@ export async function createEventAction(
     .eq("user_id", user.id)
     .single();
 
-  if (useCredit && (!credit || credit.amount < 1)) {
+    const creditAny = credit as any;
+
+    if (useCredit && (!creditAny || creditAny.amount < 1)) {
     return { error: "Недостаточно credits для платного мероприятия" };
   }
 
@@ -53,16 +55,16 @@ export async function createEventAction(
       return { error: error?.message || "Не удалось создать мероприятие" };
     }
 
-  if (useCredit && credit) {
+  if (useCredit && creditAny) {
     await supabase
       .from("credits")
-      .update({ amount: credit.amount - 1, updated_at: new Date().toISOString() })
+      .update({ amount: creditAny.amount - 1, updated_at: new Date().toISOString() } as any)
       .eq("user_id", user.id);
     await supabase.from("credit_transactions").insert({
       user_id: user.id,
       amount: -1,
       reason: `Создание мероприятия: ${title}`,
-    });
+    } as any);
   }
 
   revalidatePath("/dashboard");
@@ -82,7 +84,7 @@ export async function deleteEventAction(formData: FormData) {
     .eq("event_id", eventId);
 
   if (photos?.length) {
-    await supabase.storage.from("event-photos").remove(photos.map((photo) => photo.storage_path));
+    await supabase.storage.from("event-photos").remove(photos.map((photo: any) => photo.storage_path));
   }
 
   await supabase.from("photos").delete().eq("event_id", eventId);
