@@ -69,7 +69,7 @@ export async function signUpAction(_prevState: AuthState, formData: FormData): P
   }
   
   redirect("/dashboard");
-
+  }
 export async function signOutAction() {
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
