@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 
@@ -40,10 +41,12 @@ export async function signUpAction(_prevState: AuthState, formData: FormData): P
   }
 
   const supabase = await createServerSupabaseClient();
+  const origin = await getRequestOrigin();
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
+      emailRedirectTo: `${origin}/auth/callback`,
       data: {
         full_name: fullName,
       },
@@ -69,9 +72,26 @@ export async function signUpAction(_prevState: AuthState, formData: FormData): P
   }
   
   redirect("/dashboard");
-  }
+}
+
 export async function signOutAction() {
   const supabase = await createServerSupabaseClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+async function getRequestOrigin() {
+  const headerStore = await headers();
+  const origin = headerStore.get("origin");
+
+  if (origin) return origin;
+
+  const host = headerStore.get("x-forwarded-host") || headerStore.get("host");
+  const proto = headerStore.get("x-forwarded-proto") || "https";
+
+  if (host) return `${proto}://${host}`;
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/+$/g, "");
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+
+  return "http://localhost:3000";
 }

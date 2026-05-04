@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { AuthForm } from "@/components/AuthForm";
 import { Modal } from "@/components/ui/Modal";
 
+export const dynamic = "force-dynamic";
+
 export default async function LoginPage({
   searchParams,
 }: {
