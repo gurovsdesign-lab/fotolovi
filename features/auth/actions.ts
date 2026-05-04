@@ -18,10 +18,19 @@ export async function signInAction(_prevState: AuthState, formData: FormData): P
   }
 
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  let signInResult;
+
+  try {
+    signInResult = await supabase.auth.signInWithPassword({ email, password });
+  } catch (error) {
+    logAuthError("SIGN IN ERROR", error);
+    return { error: `Не удалось войти: ${formatAuthError(error)}` };
+  }
+
+  const { error } = signInResult;
 
   if (error) {
-    console.error("SIGN IN ERROR:", getAuthErrorDetails(error));
+    logAuthError("SIGN IN ERROR", error);
     return { error: `Не удалось войти: ${formatAuthError(error)}` };
   }
 
@@ -43,19 +52,28 @@ export async function signUpAction(_prevState: AuthState, formData: FormData): P
 
   const supabase = await createServerSupabaseClient();
   const origin = await getRequestOrigin();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: `${origin}/auth/callback`,
-      data: {
-        full_name: fullName,
+  let signUpResult;
+
+  try {
+    signUpResult = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${origin}/auth/callback`,
+        data: {
+          full_name: fullName,
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    logAuthError("SIGN UP ERROR", error);
+    return { error: `Не удалось зарегистрироваться: ${formatAuthError(error)}` };
+  }
+
+  const { data, error } = signUpResult;
 
   if (error) {
-    console.error("SIGN UP ERROR:", getAuthErrorDetails(error));
+    logAuthError("SIGN UP ERROR", error);
     return { error: `Не удалось зарегистрироваться: ${formatAuthError(error)}` };
   }
 
@@ -98,19 +116,40 @@ async function getRequestOrigin() {
   return "http://localhost:3000";
 }
 
-function formatAuthError(error: { message?: string; code?: string; status?: number }) {
-  const details = [error.message, error.code ? `code: ${error.code}` : null, error.status ? `status: ${error.status}` : null]
+function formatAuthError(error: unknown) {
+  const details = getAuthErrorDetails(error);
+  const message = details.message || "неизвестная ошибка Supabase Auth";
+  const parts = [message, details.code ? `code: ${details.code}` : null, details.status ? `status: ${details.status}` : null]
     .filter(Boolean)
     .join(" ");
 
-  return details || "неизвестная ошибка Supabase Auth";
+  return parts;
 }
 
-function getAuthErrorDetails(error: { name?: string; message?: string; code?: string; status?: number }) {
+function logAuthError(label: string, error: unknown) {
+  console.error(label, getAuthErrorDetails(error));
+}
+
+function getAuthErrorDetails(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return {
+      name: "UnknownAuthError",
+      message: String(error || "Unknown Supabase Auth error"),
+      code: null,
+      status: null,
+    };
+  }
+
+  const errorRecord = error as Record<string, unknown>;
+
   return {
-    name: error.name,
-    message: error.message,
-    code: error.code,
-    status: error.status,
+    name: toSafeString(errorRecord.name),
+    message: toSafeString(errorRecord.message),
+    code: toSafeString(errorRecord.code),
+    status: typeof errorRecord.status === "number" ? errorRecord.status : null,
   };
+}
+
+function toSafeString(value: unknown) {
+  return typeof value === "string" ? value : null;
 }
