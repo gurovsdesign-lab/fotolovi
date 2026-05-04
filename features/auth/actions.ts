@@ -21,7 +21,8 @@ export async function signInAction(_prevState: AuthState, formData: FormData): P
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    return { error: "Не удалось войти. Проверьте email и пароль" };
+    console.error("SIGN IN ERROR:", getAuthErrorDetails(error));
+    return { error: `Не удалось войти: ${formatAuthError(error)}` };
   }
 
   redirect(next);
@@ -54,7 +55,8 @@ export async function signUpAction(_prevState: AuthState, formData: FormData): P
   });
 
   if (error) {
-    return { error: "Не удалось зарегистрироваться. Попробуйте другой email" };
+    console.error("SIGN UP ERROR:", getAuthErrorDetails(error));
+    return { error: `Не удалось зарегистрироваться: ${formatAuthError(error)}` };
   }
 
   if (data.user) {
@@ -94,4 +96,21 @@ async function getRequestOrigin() {
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
 
   return "http://localhost:3000";
+}
+
+function formatAuthError(error: { message?: string; code?: string; status?: number }) {
+  const details = [error.message, error.code ? `code: ${error.code}` : null, error.status ? `status: ${error.status}` : null]
+    .filter(Boolean)
+    .join(" ");
+
+  return details || "неизвестная ошибка Supabase Auth";
+}
+
+function getAuthErrorDetails(error: { name?: string; message?: string; code?: string; status?: number }) {
+  return {
+    name: error.name,
+    message: error.message,
+    code: error.code,
+    status: error.status,
+  };
 }
