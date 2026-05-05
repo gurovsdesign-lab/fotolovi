@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database";
 
 const privateRoutes = ["/dashboard", "/admin"];
-const publicRoutes = ["/screen", "/event", "/api/events"];
+const publicRoutes = ["/live", "/screen", "/event", "/api/events"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -64,6 +64,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|screen(?:/.*)?$|event(?:/.*)?$|api/events(?:/.*)?$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|live(?:/.*)?$|screen(?:/.*)?$|event(?:/.*)?$|api/events(?:/.*)?$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
