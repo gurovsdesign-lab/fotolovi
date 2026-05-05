@@ -39,7 +39,7 @@ async function getLiveEventBySlug(slug: string): Promise<LiveScreenEvent | null>
       slug,
       message: error.message,
     });
-    throw new Error(`Failed to load live event: ${error.message}`);
+    return null;
   }
 
   return data;

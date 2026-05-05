@@ -1,10 +1,10 @@
 import "server-only";
 
-import { createServiceRoleSupabaseClient } from "@/lib/supabaseService";
+import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import type { LiveScreenPhoto } from "@/types/live";
 
 export async function getLiveScreenPhotos(eventId: string): Promise<LiveScreenPhoto[]> {
-  const supabase = createServiceRoleSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("photos")
     .select("id,public_url,uploaded_at")
