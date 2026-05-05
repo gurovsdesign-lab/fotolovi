@@ -16,7 +16,7 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
   const [event, photos] = await Promise.all([getEventById(id, user.id), getEventPhotos(id)]);
   const baseUrl = getBaseUrl();
   const guestUrl = `${baseUrl}/event/${event.slug}`;
-  const screenUrl = `${baseUrl}/screen/${event.slug}`;
+  const liveUrl = `${baseUrl}/live/${event.slug}`;
 
   return (
     <DashboardLayout email={user.email}>
@@ -57,7 +57,7 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
             </div>
             <p className="text-xs text-muted">TODO: zip-скачивание фото будет добавлено после первых тестов.</p>
           </Card>
-          <QRBlock guestUrl={guestUrl} screenUrl={screenUrl} />
+          <QRBlock guestUrl={guestUrl} liveUrl={liveUrl} />
         </section>
 
         <EventGallery photos={photos} eventId={event.id} />

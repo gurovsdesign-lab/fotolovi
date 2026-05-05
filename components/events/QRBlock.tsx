@@ -5,7 +5,7 @@ import { Copy, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
-export function QRBlock({ guestUrl, screenUrl }: { guestUrl: string; screenUrl?: string }) {
+export function QRBlock({ guestUrl, liveUrl }: { guestUrl: string; liveUrl?: string }) {
   return (
     <Card className="grid gap-5">
       <div>
@@ -21,8 +21,8 @@ export function QRBlock({ guestUrl, screenUrl }: { guestUrl: string; screenUrl?:
           <Copy className="size-4" />
           Скопировать
         </Button>
-        {screenUrl ? (
-          <a href={screenUrl} target="_blank" rel="noreferrer">
+        {liveUrl ? (
+          <a href={liveUrl} target="_blank" rel="noreferrer">
             <Button type="button" variant="dark">
               <ExternalLink className="size-4" />
               Открыть live screen
