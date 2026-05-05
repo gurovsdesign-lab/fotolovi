@@ -14,7 +14,7 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
   const user = await requireUser();
   const { id } = await params;
   const [event, photos] = await Promise.all([getEventById(id, user.id), getEventPhotos(id)]);
-  const baseUrl = getBaseUrl();
+  const baseUrl = "https://fotolovi.vercel.app";
   const guestUrl = `${baseUrl}/event/${event.slug}`;
   const liveUrl = `${baseUrl}/live/${event.slug}`;
 
