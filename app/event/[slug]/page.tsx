@@ -45,7 +45,12 @@ export default async function GuestEventPage({ params }: { params: Promise<{ slu
           <p className="mt-3 text-muted">{formatDate(event.event_date)}</p>
         </section>
 
-        <PhotoUploader eventId={event.id} photoLimit={event.photo_limit} currentCount={count} />
+        <PhotoUploader
+          eventId={event.id}
+          eventSlug={event.slug}
+          photoLimit={event.photo_limit}
+          currentCount={count}
+        />
 
         <section className="grid gap-4">
           <div className="flex items-center justify-between gap-4">

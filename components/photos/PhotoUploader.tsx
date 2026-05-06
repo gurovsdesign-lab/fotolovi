@@ -3,7 +3,6 @@
 import { useRef, useState, useTransition } from "react";
 import { Camera, UploadCloud } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabaseClient";
 import {
   MAX_UPLOAD_SIZE_BYTES,
   MAX_UPLOAD_SIZE_MB,
@@ -23,10 +22,12 @@ const UPLOAD_JPEG_QUALITY = 0.82;
 
 export function PhotoUploader({
   eventId,
+  eventSlug,
   photoLimit,
   currentCount,
 }: {
   eventId: EventId;
+  eventSlug: string;
   photoLimit: number;
   currentCount: number;
 }) {
@@ -70,20 +71,10 @@ export function PhotoUploader({
     setStatus("uploading");
     setMessage("Готовим фото...");
 
-    const supabase = createClient();
     const uploadFile = await prepareImageForUpload(file);
-    const extension = getFileExtension(uploadFile);
-
-    const random =
-     typeof crypto !== "undefined" && crypto.randomUUID
-     ? crypto.randomUUID()
-     : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
-    const storagePath = `${eventId}/${Date.now()}-${random}.${extension}`;
     console.log("PHOTO UPLOAD BEFORE", {
       bucket: PHOTO_BUCKET,
       eventId,
-      storagePath,
       fileName: file.name,
       fileType: file.type,
       fileSize: file.size,
@@ -93,53 +84,21 @@ export function PhotoUploader({
 
     setMessage("Загружаем фото...");
 
-    const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(
-      storagePath,
-      uploadFile,
-      {
-        cacheControl: "3600",
-        contentType: uploadFile.type || "image/jpeg",
-        upsert: false,
-      },
-    );
+    const formData = new FormData();
+    formData.append("file", uploadFile);
 
-    if (uploadError) {
-      console.log("UPLOAD ERROR FULL:", JSON.stringify(uploadError));
-      console.log("UPLOAD ERROR MESSAGE:", uploadError?.message);
+    const response = await fetch(`/api/events/${eventSlug}/photos`, {
+      method: "POST",
+      body: formData,
+    });
+
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (!response.ok) {
+      console.log("UPLOAD API ERROR STATUS:", response.status);
+      console.log("UPLOAD API ERROR PAYLOAD:", payload);
       setStatus("error");
-      setMessage("Не удалось загрузить фото. Попробуйте ещё раз");
-      return;
-    }
-
-    console.log("UPLOAD SUCCESS", storagePath);
-
-    const { data: publicData } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(storagePath);
-    const publicUrl = publicData.publicUrl;
-    const insertPayload = {
-      event_id: eventId,
-      storage_path: storagePath,
-      public_url: publicUrl,
-    };
-
-    console.log("EVENT ID =", eventId);
-    console.log("PHOTO INSERT BEFORE");
-    console.log("PHOTO INSERT PAYLOAD", insertPayload);
-
-    const { data: insertData, error: insertError } = await supabase.from("photos").insert(insertPayload as any)
-
-    console.log("PHOTO INSERT RESULT", insertData);
-    console.log("PHOTO INSERT ERROR", insertError);
-
-    if (insertError) {
-      console.log("INSERT ERROR FULL:", JSON.stringify(insertError));
-      console.log("INSERT ERROR MESSAGE:", insertError?.message);
-      console.log("INSERT ERROR DETAILS:", insertError?.details);
-      console.log("INSERT ERROR CODE:", insertError?.code);
-    
-      await supabase.storage.from(PHOTO_BUCKET).remove([storagePath]);
-    
-      setStatus("error");
-      setMessage("Не удалось сохранить фото. Попробуйте ещё раз");
+      setMessage(payload?.error || "Не удалось загрузить фото. Попробуйте ещё раз");
       return;
     }
 
