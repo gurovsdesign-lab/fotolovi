@@ -1,6 +1,6 @@
 import { PhotoGrid } from "@/components/photos/PhotoGrid";
 import { PhotoUploader } from "@/components/photos/PhotoUploader";
-import { createServiceRoleSupabaseClient } from "@/lib/supabaseService";
+import { createPublicSupabaseClient } from "@/lib/supabasePublic";
 import { formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import type { Photo } from "@/types/photo";
@@ -60,7 +60,7 @@ export default async function GuestEventPage({ params }: { params: Promise<{ slu
 }
 
 async function getGuestEventBySlug(slug: string): Promise<GuestEvent | null> {
-  const supabase = createServiceRoleSupabaseClient();
+  const supabase = createPublicSupabaseClient();
   const { data, error } = await supabase
     .from("events")
     .select("id,title,slug,event_date,is_paid,photo_limit")
@@ -68,14 +68,14 @@ async function getGuestEventBySlug(slug: string): Promise<GuestEvent | null> {
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Failed to load guest event: ${error.message}`);
+    throw new Error(`Failed to load guest event with public anon key: ${error.message}`);
   }
 
   return data;
 }
 
 async function getGuestEventPhotos(eventId: string): Promise<Photo[]> {
-  const supabase = createServiceRoleSupabaseClient();
+  const supabase = createPublicSupabaseClient();
   const { data, error } = await supabase
     .from("photos")
     .select("*")
@@ -84,21 +84,21 @@ async function getGuestEventPhotos(eventId: string): Promise<Photo[]> {
     .order("uploaded_at", { ascending: false });
 
   if (error) {
-    throw new Error(`Failed to load guest event photos: ${error.message}`);
+    throw new Error(`Failed to load guest event photos with public anon key: ${error.message}`);
   }
 
   return data;
 }
 
 async function getGuestPhotoCount(eventId: string) {
-  const supabase = createServiceRoleSupabaseClient();
+  const supabase = createPublicSupabaseClient();
   const { count, error } = await supabase
     .from("photos")
     .select("*", { count: "exact", head: true })
     .eq("event_id", eventId);
 
   if (error) {
-    throw new Error(`Failed to load guest photo count: ${error.message}`);
+    throw new Error(`Failed to load guest photo count with public anon key: ${error.message}`);
   }
 
   return count ?? 0;
