@@ -18,6 +18,8 @@ type UploadStatus = "idle" | "uploading" | "success" | "error";
 type EventId = Database["public"]["Tables"]["events"]["Row"]["id"];
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_UPLOAD_IMAGE_EDGE = 1920;
+const UPLOAD_JPEG_QUALITY = 0.82;
 
 export function PhotoUploader({
   eventId,
@@ -66,10 +68,11 @@ export function PhotoUploader({
     }
 
     setStatus("uploading");
-    setMessage("Загружаем фото...");
+    setMessage("Готовим фото...");
 
     const supabase = createClient();
-    const extension = getFileExtension(file);
+    const uploadFile = await prepareImageForUpload(file);
+    const extension = getFileExtension(uploadFile);
 
     const random =
      typeof crypto !== "undefined" && crypto.randomUUID
@@ -84,17 +87,25 @@ export function PhotoUploader({
       fileName: file.name,
       fileType: file.type,
       fileSize: file.size,
+      uploadType: uploadFile.type,
+      uploadSize: uploadFile.size,
     });
 
-    const { error: uploadError } = await supabase.storage
-      .from(PHOTO_BUCKET)
-      .upload(storagePath, file, {
+    setMessage("Загружаем фото...");
+
+    const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(
+      storagePath,
+      uploadFile,
+      {
         cacheControl: "3600",
-        contentType: file.type,
+        contentType: uploadFile.type || "image/jpeg",
         upsert: false,
-      });
+      },
+    );
 
     if (uploadError) {
+      console.log("UPLOAD ERROR FULL:", JSON.stringify(uploadError));
+      console.log("UPLOAD ERROR MESSAGE:", uploadError?.message);
       setStatus("error");
       setMessage("Не удалось загрузить фото. Попробуйте ещё раз");
       return;
@@ -173,4 +184,46 @@ export function PhotoUploader({
       </div>
     </div>
   );
+}
+
+async function prepareImageForUpload(file: File) {
+  if (!file.type.startsWith("image/")) return file;
+  if (file.type === "image/gif" || file.type === "image/svg+xml") return file;
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_UPLOAD_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+
+    context.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", UPLOAD_JPEG_QUALITY);
+    });
+
+    if (!blob || blob.size >= file.size) return file;
+
+    return new File([blob], replaceFileExtension(file.name, "jpg"), {
+      type: "image/jpeg",
+      lastModified: Date.now(),
+    });
+  } catch (error) {
+    console.log("IMAGE PREPARE FALLBACK:", error);
+    return file;
+  }
+}
+
+function replaceFileExtension(name: string, extension: string) {
+  const safeName = name.trim() || "photo";
+  return safeName.includes(".")
+    ? safeName.replace(/\.[^.]+$/, `.${extension}`)
+    : `${safeName}.${extension}`;
 }
