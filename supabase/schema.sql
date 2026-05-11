@@ -112,6 +112,11 @@ alter table public.events enable row level security;
 alter table public.photos enable row level security;
 alter table public.credit_transactions enable row level security;
 
+grant usage on schema public to anon, authenticated;
+grant select on table public.events to anon, authenticated;
+grant select, insert on table public.photos to anon, authenticated;
+grant update, delete on table public.photos to authenticated;
+
 drop policy if exists "profiles own or admin read" on public.profiles;
 create policy "profiles own or admin read"
 on public.profiles for select

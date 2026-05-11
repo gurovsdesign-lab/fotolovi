@@ -11,6 +11,11 @@ export type EventActionState = {
   error?: string;
 };
 
+export type RenameEventResult = {
+  error?: string;
+  title?: string;
+};
+
 export async function createEventAction(
   _prevState: EventActionState,
   formData: FormData,
@@ -92,4 +97,35 @@ export async function deleteEventAction(formData: FormData) {
 
   revalidatePath("/dashboard");
   redirect("/dashboard");
+}
+
+export async function renameEventAction(eventId: string, title: string): Promise<RenameEventResult> {
+  const user = await requireUser();
+  const nextTitle = title.trim();
+
+  if (!eventId) {
+    return { error: "Не удалось определить мероприятие" };
+  }
+
+  if (!nextTitle) {
+    return { error: "Название не может быть пустым" };
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await (supabase.from("events") as any)
+    .update({ title: nextTitle } as any)
+    .eq("id", eventId)
+    .eq("user_id", user.id)
+    .select("title")
+    .single();
+
+  if (error || !data) {
+    return { error: error?.message || "Не удалось переименовать мероприятие" };
+  }
+
+  const event = data as any;
+  revalidatePath("/dashboard");
+  revalidatePath(`/dashboard/events/${eventId}`);
+
+  return { title: event.title };
 }
