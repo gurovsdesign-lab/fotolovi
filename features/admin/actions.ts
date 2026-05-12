@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createServiceRoleSupabaseClient } from "@/lib/supabaseService";
+import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import { requireAdmin } from "@/features/auth/queries";
 import { PHOTO_BUCKET } from "@/lib/constants";
 
@@ -12,7 +12,7 @@ export async function addCreditsAction(formData: FormData) {
 
   if (!userId || !Number.isFinite(amount) || amount === 0) return;
 
-  const supabase = createServiceRoleSupabaseClient();
+  const supabase = await createServerSupabaseClient({ persistCookies: false });
   const { data: current, error: selectError }: any = await supabase
     .from("credits")
     .select("amount")
@@ -71,7 +71,7 @@ export async function adminDeletePhotoAction(formData: FormData) {
 
   if (!photoId || !storagePath) return;
 
-  const supabase = createServiceRoleSupabaseClient();
+  const supabase = await createServerSupabaseClient({ persistCookies: false });
   await supabase.storage.from(PHOTO_BUCKET).remove([storagePath]);
   await supabase.from("photos").delete().eq("id", photoId);
 

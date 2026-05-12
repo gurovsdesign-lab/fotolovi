@@ -1,7 +1,7 @@
-import { createServiceRoleSupabaseClient } from "@/lib/supabaseService";
+import { createServerSupabaseClient } from "@/lib/supabaseServer";
 
 export async function getAdminOverview() {
-  const supabase = createServiceRoleSupabaseClient();
+  const supabase = await createServerSupabaseClient();
 
   const [profiles, events, photos, credits] = await Promise.all([
     supabase.from("profiles").select("*").order("created_at", { ascending: false }),
@@ -9,6 +9,12 @@ export async function getAdminOverview() {
     supabase.from("photos").select("*").order("uploaded_at", { ascending: false }).limit(100),
     supabase.from("credits").select("user_id, amount"),
   ]);
+
+  logAdminQueryError("profiles", profiles.error);
+  logAdminQueryError("events", events.error);
+  logAdminQueryError("photos", photos.error);
+  logAdminQueryError("credits", credits.error);
+
   const creditsByUserId = new Map(
     ((credits.data ?? []) as Array<{ user_id: string; amount: number }>).map((credit) => [
       credit.user_id,
@@ -25,4 +31,9 @@ export async function getAdminOverview() {
     events: events.data ?? [],
     photos: photos.data ?? [],
   };
+}
+
+function logAdminQueryError(label: string, error: { message: string } | null) {
+  if (!error) return;
+  console.error(`Failed to load admin ${label}`, { message: error.message });
 }
