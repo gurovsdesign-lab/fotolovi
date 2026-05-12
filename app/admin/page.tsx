@@ -42,6 +42,7 @@ export default async function AdminPage() {
               <tr>
                 <th className="py-3">Email</th>
                 <th>Role</th>
+                <th>Credits</th>
                 <th>Дата</th>
                 <th>Начислить</th>
               </tr>
@@ -51,6 +52,7 @@ export default async function AdminPage() {
                 <tr key={profile.id} className="border-t border-black/5">
                   <td className="py-3">{profile.email}</td>
                   <td>{profile.role}</td>
+                  <td>{profile.credits_amount ?? 0}</td>
                   <td>{formatDate(profile.created_at)}</td>
                   <td>
                     <form action={addCreditsAction} className="flex gap-2">

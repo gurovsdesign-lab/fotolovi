@@ -119,6 +119,12 @@ grant select, insert on table public.credit_transactions to authenticated;
 grant select on table public.events to anon, authenticated;
 grant select, insert on table public.photos to anon, authenticated;
 grant update, delete on table public.photos to authenticated;
+grant usage on schema public to service_role;
+grant select on table public.profiles to service_role;
+grant select, insert, update on table public.credits to service_role;
+grant select, insert on table public.credit_transactions to service_role;
+grant select on table public.events to service_role;
+grant select, delete on table public.photos to service_role;
 
 drop policy if exists "profiles own or admin read" on public.profiles;
 create policy "profiles own or admin read"
