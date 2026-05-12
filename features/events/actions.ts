@@ -30,15 +30,23 @@ export async function createEventAction(
   }
 
   const supabase = await createServerSupabaseClient();
-  const { data: credit } = await supabase
+  const { data: credit, error: creditError } = await supabase
     .from("credits")
     .select("*")
     .eq("user_id", user.id)
     .single();
 
-    const creditAny = credit as any;
+  if (creditError) {
+    console.error("Failed to load credits before event creation", {
+      userId: user.id,
+      message: creditError.message,
+    });
+    return { error: "Не удалось проверить credits" };
+  }
 
-    if (useCredit && (!creditAny || creditAny.amount < 1)) {
+  const creditAny = credit as any;
+
+  if (useCredit && (!creditAny || creditAny.amount < 1)) {
     return { error: "Недостаточно credits для платного мероприятия" };
   }
 
@@ -55,24 +63,31 @@ export async function createEventAction(
     .select("id")
     .single();
 
-    if (error || !data) {
-      console.log("EVENT CREATE ERROR:", error);
-      return { error: error?.message || "Не удалось создать мероприятие" };
-    }
+  if (error || !data) {
+    console.log("EVENT CREATE ERROR:", error);
+    return { error: error?.message || "Не удалось создать мероприятие" };
+  }
 
-  if (useCredit && creditAny) {
-    await (supabase.from("credits") as any)
-      .update({ amount: creditAny.amount - 1, updated_at: new Date().toISOString() } as any)
-      .eq("user_id", user.id);
-    await (supabase.from("credit_transactions") as any).insert({
-      user_id: user.id,
-      amount: -1,
-      reason: `Создание мероприятия: ${title}`,
-    } as any);
+  const eventAny = data as any;
+
+  if (useCredit) {
+    const { data: debited, error: debitError } = await (supabase as any).rpc("debit_current_user_credit", {
+      p_reason: `Создание мероприятия: ${title}`,
+    });
+
+    if (debitError || debited !== true) {
+      console.error("Failed to debit credit for paid event", {
+        userId: user.id,
+        eventId: eventAny.id,
+        message: debitError?.message ?? "Credit debit returned false",
+      });
+      await supabase.from("events").delete().eq("id", eventAny.id).eq("user_id", user.id);
+      return { error: debitError?.message || "Недостаточно credits для платного мероприятия" };
+    }
   }
 
   revalidatePath("/dashboard");
-  const eventAny = data as any;
+  revalidatePath("/admin");
   redirect(`/dashboard/events/${eventAny.id}`);
 }
 

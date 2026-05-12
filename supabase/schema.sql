@@ -106,6 +106,33 @@ as $$
   );
 $$;
 
+create or replace function public.debit_current_user_credit(p_reason text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    return false;
+  end if;
+
+  update public.credits
+  set amount = amount - 1
+  where user_id = auth.uid()
+    and amount > 0;
+
+  if not found then
+    return false;
+  end if;
+
+  insert into public.credit_transactions (user_id, amount, reason)
+  values (auth.uid(), -1, p_reason);
+
+  return true;
+end;
+$$;
+
 alter table public.profiles enable row level security;
 alter table public.credits enable row level security;
 alter table public.events enable row level security;
@@ -125,6 +152,8 @@ grant select, insert, update on table public.credits to service_role;
 grant select, insert on table public.credit_transactions to service_role;
 grant select on table public.events to service_role;
 grant select, delete on table public.photos to service_role;
+revoke execute on function public.debit_current_user_credit(text) from public;
+grant execute on function public.debit_current_user_credit(text) to authenticated;
 
 drop policy if exists "profiles own or admin read" on public.profiles;
 create policy "profiles own or admin read"
