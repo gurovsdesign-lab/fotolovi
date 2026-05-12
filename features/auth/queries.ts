@@ -29,16 +29,8 @@ export async function getProfile(userId: string) {
 export async function requireAdmin() {
   const user = await requireUser();
   const profile = await getProfile(user.id);
-  const role = (profile as any)?.role;
 
-  console.log("[requireAdmin debug]", {
-    userId: user.id,
-    profileFound: Boolean(profile),
-    profileRole: role ?? null,
-    willRedirectToDashboard: role !== "admin",
-  });
-
-  if (role !== "admin") {
+  if ((profile as any)?.role !== "admin") {
     redirect("/dashboard");
   }
 
