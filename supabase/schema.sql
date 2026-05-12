@@ -114,6 +114,8 @@ alter table public.credit_transactions enable row level security;
 
 grant usage on schema public to anon, authenticated;
 grant select on table public.profiles to authenticated;
+grant select, insert, update on table public.credits to authenticated;
+grant select, insert on table public.credit_transactions to authenticated;
 grant select on table public.events to anon, authenticated;
 grant select, insert on table public.photos to anon, authenticated;
 grant update, delete on table public.photos to authenticated;
