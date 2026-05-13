@@ -7,8 +7,10 @@ import { LIVE_REFRESH_MS } from "@/lib/constants";
 import type { LiveScreenEvent, LiveScreenPhoto } from "@/types/live";
 import { LiveEmptyState } from "./LiveEmptyState";
 
-const CENTER_PHOTO_INTERVAL_MS = 6000;
+const CENTER_PHOTO_INTERVAL_MS = 4500;
 const SIDE_SEQUENCE_LENGTH = 9;
+const SIDE_VISIBLE_SLOTS_PER_COLUMN = 5;
+const SIDE_FULL_REAL_PHOTO_COUNT = SIDE_VISIBLE_SLOTS_PER_COLUMN * 2;
 
 type SideItem =
   | {
@@ -65,8 +67,8 @@ export function LiveScreen({
   const centerPhoto = visiblePhotos.length
     ? visiblePhotos[centerPhotoIndex % visiblePhotos.length]
     : null;
-  const leftColumnItems = useMemo(() => createSideItems(visiblePhotos, 0), [visiblePhotos]);
-  const rightColumnItems = useMemo(() => createSideItems(visiblePhotos, 3), [visiblePhotos]);
+  const leftColumnItems = useMemo(() => createSideItems(visiblePhotos, "left"), [visiblePhotos]);
+  const rightColumnItems = useMemo(() => createSideItems(visiblePhotos, "right"), [visiblePhotos]);
 
   useEffect(() => {
     if (visiblePhotos.length <= 1) {
@@ -90,8 +92,8 @@ export function LiveScreen({
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_12%,rgba(214,179,106,0.18),transparent_34rem)]" />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,18,18,0.92),rgba(18,18,18,0.48)_24%,rgba(18,18,18,0.7)_100%)]" />
 
-      <header className="relative z-20 px-5 pb-3 pt-7 text-center sm:px-8 lg:px-12">
-        <h1 className="mx-auto max-w-[92vw] truncate font-display text-[clamp(2.4rem,5.2vw,4rem)] leading-none text-white">
+      <header className="relative z-20 px-5 pb-1 pt-7 text-center sm:px-8 lg:px-12">
+        <h1 className="mx-auto max-w-[92vw] truncate py-2 font-display text-[clamp(2.4rem,5.2vw,4rem)] leading-[1.12] text-white">
           {event.title}
         </h1>
       </header>
@@ -117,16 +119,17 @@ export function LiveScreen({
           </div>
         </section>
 
-        <div className="pointer-events-auto absolute bottom-5 right-4 z-30 hidden shrink-0 items-center gap-4 rounded-lg border border-white/10 bg-black/35 p-3 backdrop-blur md:flex lg:bottom-7 lg:right-12">
-          <div className="rounded-md bg-white p-2">
-            <QRCodeCanvas value={guestUrl} size={92} marginSize={1} />
-          </div>
-          <div className="pr-2">
-            <p className="text-lg font-semibold">Сканируйте QR</p>
-            <p className="mt-1 text-sm text-white/60">Фото появятся здесь</p>
-          </div>
-        </div>
       </main>
+
+      <div className="pointer-events-auto absolute bottom-5 right-4 z-50 hidden shrink-0 isolate items-center gap-4 rounded-lg border border-white/10 bg-night p-3 shadow-[0_18px_80px_rgba(0,0,0,0.58)] md:flex lg:bottom-7 lg:right-12">
+        <div className="rounded-md bg-white p-2">
+          <QRCodeCanvas value={guestUrl} size={92} marginSize={1} />
+        </div>
+        <div className="pr-2">
+          <p className="text-lg font-semibold">Сканируйте QR</p>
+          <p className="mt-1 text-sm text-white/60">Фото появятся здесь</p>
+        </div>
+      </div>
 
       <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end bg-gradient-to-t from-night via-night/80 to-transparent px-5 pb-7 pt-24 sm:px-8 lg:px-12">
         <p className="text-lg font-medium text-white/80">{visiblePhotos.length} фото в эфире</p>
@@ -162,8 +165,8 @@ function SideColumn({
           <SideTile key={`${item.id}-${index}`} item={item} index={index} />
         ))}
       </div>
-      <div className="absolute inset-x-0 top-0 z-10 h-[28%] bg-gradient-to-b from-night via-night/90 to-transparent backdrop-blur-[2px]" />
-      <div className="absolute inset-x-0 bottom-0 z-10 h-[32%] bg-gradient-to-t from-night via-night/90 to-transparent backdrop-blur-[2px]" />
+      <div className="absolute inset-x-0 top-0 z-10 h-[38%] bg-gradient-to-b from-night via-night/95 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 z-10 h-[38%] bg-gradient-to-t from-night via-night/95 to-transparent" />
     </aside>
   );
 }
@@ -174,6 +177,7 @@ function SideTile({ item, index }: { item: SideItem; index: number }) {
   if (item.type === "placeholder") {
     return (
       <div
+        data-live-side-item="placeholder"
         className={`relative shrink-0 overflow-hidden rounded-lg border border-white/10 shadow-[0_18px_70px_rgba(0,0,0,0.34)] ${aspectClass} ${item.className}`}
       >
         <div className="absolute inset-0 bg-black/10 ring-1 ring-inset ring-white/10" />
@@ -183,6 +187,7 @@ function SideTile({ item, index }: { item: SideItem; index: number }) {
 
   return (
     <figure
+      data-live-side-item="photo"
       className={`relative shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/5 shadow-[0_18px_70px_rgba(0,0,0,0.34)] ${aspectClass}`}
     >
       <Image
@@ -197,28 +202,40 @@ function SideTile({ item, index }: { item: SideItem; index: number }) {
   );
 }
 
-function createSideItems(photos: LiveScreenPhoto[], offset: number): SideItem[] {
-  const items: SideItem[] = [];
+function createSideItems(photos: LiveScreenPhoto[], side: "left" | "right"): SideItem[] {
+  if (photos.length >= SIDE_FULL_REAL_PHOTO_COUNT) {
+    const startIndex = side === "left" ? 0 : SIDE_VISIBLE_SLOTS_PER_COLUMN;
 
-  for (let index = 0; index < SIDE_SEQUENCE_LENGTH; index += 1) {
-    const shouldUsePlaceholder = photos.length < 6 && index % 3 === 1;
+    return Array.from({ length: SIDE_VISIBLE_SLOTS_PER_COLUMN }, (_, index) => {
+      const photo = photos[startIndex + index];
 
-    if (shouldUsePlaceholder || !photos.length) {
-      items.push({
-        type: "placeholder",
-        id: `placeholder-${offset}-${index}`,
-        className: placeholderStyles[(index + offset) % placeholderStyles.length],
-      });
-      continue;
-    }
-
-    const photo = photos[(index + offset) % photos.length];
-    items.push({
-      type: "photo",
-      id: `${photo.id}-${offset}-${index}`,
-      publicUrl: photo.public_url,
+      return {
+        type: "photo",
+        id: `${photo.id}-${side}-${index}`,
+        publicUrl: photo.public_url,
+      };
     });
   }
+
+  const items: SideItem[] = Array.from({ length: SIDE_SEQUENCE_LENGTH }, (_, index) => ({
+    type: "placeholder",
+    id: `placeholder-${side}-${index}`,
+    className: placeholderStyles[(index + (side === "left" ? 0 : 2)) % placeholderStyles.length],
+  }));
+  const sidePhotos = photos.filter((_, index) =>
+    side === "left" ? index % 2 === 0 : index % 2 === 1,
+  );
+  const photoSlots = [1, 4, 7, 2, 6];
+
+  sidePhotos.slice(0, SIDE_VISIBLE_SLOTS_PER_COLUMN).forEach((photo, index) => {
+    const slotIndex = photoSlots[index];
+
+    items[slotIndex] = {
+      type: "photo",
+      id: `${photo.id}-${side}-${slotIndex}`,
+      publicUrl: photo.public_url,
+    };
+  });
 
   return items;
 }
