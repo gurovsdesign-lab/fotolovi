@@ -38,3 +38,60 @@ img {
 ::selection {
   background: rgba(74, 108, 247, 0.18);
 }
+
+@keyframes live-column-up {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(0, -50%, 0);
+  }
+}
+
+@keyframes live-column-down {
+  from {
+    transform: translate3d(0, -50%, 0);
+  }
+
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes live-main-photo {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-live-column-up {
+  animation: live-column-up 36s linear infinite;
+}
+
+.animate-live-column-down {
+  animation: live-column-down 38s linear infinite;
+}
+
+.animate-live-main-photo {
+  animation: live-main-photo 900ms ease-out both;
+}
+
+.live-main-glow::after {
+  position: absolute;
+  right: 8%;
+  bottom: -14%;
+  left: 8%;
+  z-index: 0;
+  height: 34%;
+  border-radius: 999px;
+  background: rgba(214, 179, 106, 0.22);
+  filter: blur(58px);
+  content: "";
+}
