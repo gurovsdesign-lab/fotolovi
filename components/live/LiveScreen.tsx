@@ -8,9 +8,10 @@ import type { LiveScreenEvent, LiveScreenPhoto } from "@/types/live";
 import { LiveEmptyState } from "./LiveEmptyState";
 
 const CENTER_PHOTO_INTERVAL_MS = 4500;
-const SIDE_SEQUENCE_LENGTH = 9;
+const SIDE_SEQUENCE_LENGTH = 7;
 const SIDE_VISIBLE_SLOTS_PER_COLUMN = 5;
-const SIDE_FULL_REAL_PHOTO_COUNT = SIDE_VISIBLE_SLOTS_PER_COLUMN * 2;
+const SIDE_NO_PLACEHOLDER_PHOTO_COUNT = 7;
+const SIDE_FULL_REAL_PHOTO_COUNT = 10;
 
 type SideItem =
   | {
@@ -89,7 +90,7 @@ export function LiveScreen({
 
   return (
     <div className="relative h-screen overflow-hidden bg-night text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_12%,rgba(214,179,106,0.18),transparent_34rem)]" />
+      <div className="live-ambient-glow absolute inset-0 bg-[radial-gradient(circle_at_12%_12%,rgba(214,179,106,0.18),transparent_34rem)]" />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,18,18,0.92),rgba(18,18,18,0.48)_24%,rgba(18,18,18,0.7)_100%)]" />
 
       <header className="relative z-20 px-5 pb-1 pt-7 text-center sm:px-8 lg:px-12">
@@ -158,15 +159,13 @@ function SideColumn({
   return (
     <aside
       aria-hidden="true"
-      className={`pointer-events-none absolute bottom-8 top-7 z-0 w-[clamp(4.6rem,14vw,14rem)] overflow-hidden sm:top-10 ${positionClass}`}
+      className={`live-side-column-mask pointer-events-none absolute bottom-8 top-7 z-0 w-[clamp(4.6rem,14vw,14rem)] overflow-hidden sm:top-10 ${positionClass}`}
     >
       <div className={`flex flex-col gap-4 will-change-transform sm:gap-5 ${animationClass}`}>
         {repeatedItems.map((item, index) => (
           <SideTile key={`${item.id}-${index}`} item={item} index={index} />
         ))}
       </div>
-      <div className="absolute inset-x-0 top-0 z-10 h-[38%] bg-gradient-to-b from-night via-night/95 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 z-10 h-[38%] bg-gradient-to-t from-night via-night/95 to-transparent" />
     </aside>
   );
 }
@@ -203,6 +202,18 @@ function SideTile({ item, index }: { item: SideItem; index: number }) {
 }
 
 function createSideItems(photos: LiveScreenPhoto[], side: "left" | "right"): SideItem[] {
+  const makePlaceholders = () =>
+    Array.from({ length: SIDE_SEQUENCE_LENGTH }, (_, index): SideItem => ({
+      type: "placeholder",
+      id: `placeholder-${side}-${index}`,
+      className:
+        placeholderStyles[(index + (side === "left" ? 0 : 2)) % placeholderStyles.length],
+    }));
+
+  if (!photos.length) {
+    return makePlaceholders();
+  }
+
   if (photos.length >= SIDE_FULL_REAL_PHOTO_COUNT) {
     const startIndex = side === "left" ? 0 : SIDE_VISIBLE_SLOTS_PER_COLUMN;
 
@@ -217,18 +228,27 @@ function createSideItems(photos: LiveScreenPhoto[], side: "left" | "right"): Sid
     });
   }
 
-  const items: SideItem[] = Array.from({ length: SIDE_SEQUENCE_LENGTH }, (_, index) => ({
-    type: "placeholder",
-    id: `placeholder-${side}-${index}`,
-    className: placeholderStyles[(index + (side === "left" ? 0 : 2)) % placeholderStyles.length],
-  }));
-  const sidePhotos = photos.filter((_, index) =>
-    side === "left" ? index % 2 === 0 : index % 2 === 1,
-  );
-  const photoSlots = [1, 4, 7, 2, 6];
+  if (photos.length >= SIDE_NO_PLACEHOLDER_PHOTO_COUNT) {
+    const startIndex = side === "left" ? 0 : Math.ceil(photos.length / 2);
 
-  sidePhotos.slice(0, SIDE_VISIBLE_SLOTS_PER_COLUMN).forEach((photo, index) => {
-    const slotIndex = photoSlots[index];
+    return Array.from({ length: SIDE_SEQUENCE_LENGTH }, (_, index) => {
+      const photo = photos[(startIndex + index) % photos.length];
+
+      return {
+        type: "photo",
+        id: `${photo.id}-${side}-${index}`,
+        publicUrl: photo.public_url,
+      };
+    });
+  }
+
+  const items = makePlaceholders();
+  const realSlotCount = photos.length === 1 ? 3 : Math.min(5, photos.length + 2);
+  const photoSlots = side === "left" ? [1, 3, 5, 2, 4] : [2, 4, 5, 1, 3];
+  const sideOffset = side === "left" ? 0 : Math.max(1, Math.floor(photos.length / 2));
+
+  photoSlots.slice(0, realSlotCount).forEach((slotIndex, index) => {
+    const photo = photos[(index + sideOffset) % photos.length];
 
     items[slotIndex] = {
       type: "photo",

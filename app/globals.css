@@ -71,6 +71,28 @@ img {
   }
 }
 
+@keyframes live-glow-drift {
+  0% {
+    transform: translate3d(-1.2%, 0.8%, 0) scale(1);
+  }
+
+  25% {
+    transform: translate3d(1.4%, -0.6%, 0) scale(1.025);
+  }
+
+  50% {
+    transform: translate3d(0.8%, 1.1%, 0) scale(0.99);
+  }
+
+  75% {
+    transform: translate3d(-0.9%, -0.8%, 0) scale(1.018);
+  }
+
+  100% {
+    transform: translate3d(-1.2%, 0.8%, 0) scale(1);
+  }
+}
+
 .animate-live-column-up {
   animation: live-column-up 36s linear infinite;
 }
@@ -83,6 +105,32 @@ img {
   animation: live-main-photo 900ms ease-out both;
 }
 
+.live-side-column-mask {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    rgba(0, 0, 0, 0.42) 18px,
+    #000 42px,
+    #000 calc(100% - 42px),
+    rgba(0, 0, 0, 0.42) calc(100% - 18px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    rgba(0, 0, 0, 0.42) 18px,
+    #000 42px,
+    #000 calc(100% - 42px),
+    rgba(0, 0, 0, 0.42) calc(100% - 18px),
+    transparent 100%
+  );
+}
+
+.live-ambient-glow {
+  animation: live-glow-drift 26s ease-in-out infinite;
+  transform-origin: 12% 12%;
+}
+
 .live-main-glow::after {
   position: absolute;
   right: 8%;
@@ -93,5 +141,13 @@ img {
   border-radius: 999px;
   background: rgba(214, 179, 106, 0.22);
   filter: blur(58px);
+  animation: live-glow-drift 24s ease-in-out infinite;
+  transform-origin: center;
   content: "";
+}
+
+.live-empty-glow {
+  background: radial-gradient(circle at 50% 50%, rgba(214, 179, 106, 0.17), transparent 40rem);
+  animation: live-glow-drift 28s ease-in-out infinite;
+  transform-origin: center;
 }
