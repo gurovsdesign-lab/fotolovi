@@ -26,10 +26,10 @@ type SideItem =
     };
 
 const placeholderStyles = [
-  "bg-[radial-gradient(circle_at_35%_24%,rgba(255,255,255,0.14),transparent_34%),linear-gradient(145deg,rgba(255,255,255,0.1),rgba(255,255,255,0.03))]",
-  "bg-[linear-gradient(145deg,rgba(214,179,106,0.14),rgba(255,255,255,0.05)_42%,rgba(255,255,255,0.02))]",
-  "bg-[radial-gradient(circle_at_70%_18%,rgba(214,179,106,0.16),transparent_30%),linear-gradient(160deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))]",
-  "bg-[linear-gradient(135deg,rgba(255,255,255,0.11),rgba(214,179,106,0.08)_48%,rgba(255,255,255,0.02))]",
+  "bg-[linear-gradient(145deg,rgba(255,255,255,0.072),rgba(255,255,255,0.032))]",
+  "bg-[linear-gradient(145deg,rgba(255,255,255,0.056),rgba(214,179,106,0.034))]",
+  "bg-[linear-gradient(160deg,rgba(255,255,255,0.064),rgba(255,255,255,0.028))]",
+  "bg-[linear-gradient(135deg,rgba(214,179,106,0.044),rgba(255,255,255,0.03))]",
 ];
 
 const sideAspectClasses = [
@@ -122,13 +122,13 @@ export function LiveScreen({
 
       </main>
 
-      <div className="pointer-events-auto absolute bottom-5 right-4 z-50 hidden shrink-0 isolate items-center gap-4 rounded-lg border border-white/10 bg-night p-3 shadow-[0_18px_80px_rgba(0,0,0,0.58)] md:flex lg:bottom-7 lg:right-12">
-        <div className="rounded-md bg-white p-2">
-          <QRCodeCanvas value={guestUrl} size={92} marginSize={1} />
+      <div className="pointer-events-auto absolute bottom-5 right-4 z-50 hidden shrink-0 isolate items-center gap-[1.15rem] rounded-lg border border-white/10 bg-night p-3.5 shadow-[0_18px_80px_rgba(0,0,0,0.58)] md:flex lg:bottom-7 lg:right-12">
+        <div className="rounded-md bg-white p-[0.58rem]">
+          <QRCodeCanvas value={guestUrl} size={106} marginSize={1} />
         </div>
         <div className="pr-2">
-          <p className="text-lg font-semibold">Сканируйте QR</p>
-          <p className="mt-1 text-sm text-white/60">Фото появятся здесь</p>
+          <p className="text-xl font-semibold">Сканируйте QR</p>
+          <p className="mt-1 text-[0.95rem] text-white/60">Фото появятся здесь</p>
         </div>
       </div>
 
@@ -159,9 +159,9 @@ function SideColumn({
   return (
     <aside
       aria-hidden="true"
-      className={`live-side-column-mask pointer-events-none absolute bottom-8 top-7 z-0 w-[clamp(4.6rem,14vw,14rem)] overflow-hidden sm:top-10 ${positionClass}`}
+      className={`live-side-column-mask pointer-events-none absolute bottom-8 top-7 z-0 w-[clamp(4.6rem,14vw,14rem)] overflow-hidden bg-transparent sm:top-10 ${positionClass}`}
     >
-      <div className={`flex flex-col gap-4 will-change-transform sm:gap-5 ${animationClass}`}>
+      <div className={`flex flex-col gap-4 bg-transparent will-change-transform sm:gap-5 ${animationClass}`}>
         {repeatedItems.map((item, index) => (
           <SideTile key={`${item.id}-${index}`} item={item} index={index} />
         ))}
@@ -179,7 +179,7 @@ function SideTile({ item, index }: { item: SideItem; index: number }) {
         data-live-side-item="placeholder"
         className={`relative shrink-0 overflow-hidden rounded-lg border border-white/10 shadow-[0_18px_70px_rgba(0,0,0,0.34)] ${aspectClass} ${item.className}`}
       >
-        <div className="absolute inset-0 bg-black/10 ring-1 ring-inset ring-white/10" />
+        <div className="absolute inset-0 ring-1 ring-inset ring-white/10" />
       </div>
     );
   }
@@ -214,11 +214,16 @@ function createSideItems(photos: LiveScreenPhoto[], side: "left" | "right"): Sid
     return makePlaceholders();
   }
 
+  const sidePhotos = photos.filter((_, index) =>
+    side === "left" ? index % 2 === 0 : index % 2 === 1,
+  );
+
   if (photos.length >= SIDE_FULL_REAL_PHOTO_COUNT) {
-    const startIndex = side === "left" ? 0 : SIDE_VISIBLE_SLOTS_PER_COLUMN;
+    const fallbackStartIndex = side === "left" ? 0 : SIDE_VISIBLE_SLOTS_PER_COLUMN;
+    const sourcePhotos = sidePhotos.length ? sidePhotos : photos.slice(fallbackStartIndex);
 
     return Array.from({ length: SIDE_VISIBLE_SLOTS_PER_COLUMN }, (_, index) => {
-      const photo = photos[startIndex + index];
+      const photo = sourcePhotos[index % sourcePhotos.length];
 
       return {
         type: "photo",
@@ -229,10 +234,10 @@ function createSideItems(photos: LiveScreenPhoto[], side: "left" | "right"): Sid
   }
 
   if (photos.length >= SIDE_NO_PLACEHOLDER_PHOTO_COUNT) {
-    const startIndex = side === "left" ? 0 : Math.ceil(photos.length / 2);
+    const sourcePhotos = sidePhotos.length ? sidePhotos : photos;
 
     return Array.from({ length: SIDE_SEQUENCE_LENGTH }, (_, index) => {
-      const photo = photos[(startIndex + index) % photos.length];
+      const photo = sourcePhotos[index % sourcePhotos.length];
 
       return {
         type: "photo",
@@ -243,12 +248,12 @@ function createSideItems(photos: LiveScreenPhoto[], side: "left" | "right"): Sid
   }
 
   const items = makePlaceholders();
-  const realSlotCount = photos.length === 1 ? 3 : Math.min(5, photos.length + 2);
+  const realSlotCount =
+    sidePhotos.length === 0 ? 0 : sidePhotos.length === 1 ? 3 : Math.min(5, sidePhotos.length + 2);
   const photoSlots = side === "left" ? [1, 3, 5, 2, 4] : [2, 4, 5, 1, 3];
-  const sideOffset = side === "left" ? 0 : Math.max(1, Math.floor(photos.length / 2));
 
   photoSlots.slice(0, realSlotCount).forEach((slotIndex, index) => {
-    const photo = photos[(index + sideOffset) % photos.length];
+    const photo = sidePhotos[index % sidePhotos.length];
 
     items[slotIndex] = {
       type: "photo",
