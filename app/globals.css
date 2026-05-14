@@ -220,32 +220,6 @@ img {
   -webkit-backdrop-filter: blur(14px) saturate(135%);
 }
 
-.live-photo-count-footer::before {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(to top, #121212 0%, rgba(18, 18, 18, 0.8) 45%, transparent 100%);
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    transparent 28%,
-    #000 40%,
-    #000 60%,
-    transparent 72%,
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to right,
-    transparent 0,
-    transparent 28%,
-    #000 40%,
-    #000 60%,
-    transparent 72%,
-    transparent 100%
-  );
-  content: "";
-}
-
 .live-main-glow::after {
   position: absolute;
   right: 8%;
