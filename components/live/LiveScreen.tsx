@@ -8,6 +8,7 @@ import type { LiveScreenEvent, LiveScreenPhoto } from "@/types/live";
 import { LiveEmptyState } from "./LiveEmptyState";
 
 const CENTER_PHOTO_INTERVAL_MS = 4500;
+const CENTER_PHOTO_TRANSITION_MS = 900;
 const SIDE_SEQUENCE_LENGTH = 7;
 const SIDE_REAL_ONLY_PHOTO_COUNT = 8;
 
@@ -49,6 +50,11 @@ export function LiveScreen({
 }) {
   const [photos, setPhotos] = useState(initialPhotos);
   const [centerPhotoIndex, setCenterPhotoIndex] = useState(0);
+  const [displayedCenterPhoto, setDisplayedCenterPhoto] = useState<LiveScreenPhoto | null>(
+    initialPhotos[0] ?? null,
+  );
+  const [incomingCenterPhoto, setIncomingCenterPhoto] = useState<LiveScreenPhoto | null>(null);
+  const [isIncomingCenterPhotoReady, setIsIncomingCenterPhotoReady] = useState(false);
 
   useEffect(() => {
     const fetchPhotos = async () => {
@@ -82,7 +88,40 @@ export function LiveScreen({
     return () => window.clearInterval(rotation);
   }, [visiblePhotos.length]);
 
-  if (!visiblePhotos.length || !centerPhoto) {
+  useEffect(() => {
+    if (!centerPhoto) return;
+
+    if (!displayedCenterPhoto) {
+      setDisplayedCenterPhoto(centerPhoto);
+      setIncomingCenterPhoto(null);
+      setIsIncomingCenterPhotoReady(false);
+      return;
+    }
+
+    if (
+      centerPhoto.id === displayedCenterPhoto.id ||
+      centerPhoto.id === incomingCenterPhoto?.id
+    ) {
+      return;
+    }
+
+    setIncomingCenterPhoto(centerPhoto);
+    setIsIncomingCenterPhotoReady(false);
+  }, [centerPhoto, displayedCenterPhoto, incomingCenterPhoto?.id]);
+
+  useEffect(() => {
+    if (!incomingCenterPhoto || !isIncomingCenterPhotoReady) return;
+
+    const swap = window.setTimeout(() => {
+      setDisplayedCenterPhoto(incomingCenterPhoto);
+      setIncomingCenterPhoto(null);
+      setIsIncomingCenterPhotoReady(false);
+    }, CENTER_PHOTO_TRANSITION_MS);
+
+    return () => window.clearTimeout(swap);
+  }, [incomingCenterPhoto, isIncomingCenterPhotoReady]);
+
+  if (!visiblePhotos.length || !centerPhoto || !displayedCenterPhoto) {
     return <LiveEmptyState guestUrl={guestUrl} title={event.title} />;
   }
 
@@ -117,14 +156,31 @@ export function LiveScreen({
           <div className="live-main-glow relative isolate">
             <figure className="live-photo-card live-main-photo-card relative z-10 aspect-[4/5] w-[min(74vw,28rem)] max-h-[calc(100vh-13rem)] overflow-hidden rounded-lg sm:h-[min(66vh,46rem)] sm:w-auto">
               <Image
-                key={centerPhoto.id}
-                src={centerPhoto.public_url}
+                key={displayedCenterPhoto.id}
+                src={displayedCenterPhoto.public_url}
                 alt="Фото мероприятия"
                 fill
                 priority
-                className="animate-live-main-photo live-center-photo-image object-cover"
+                className="live-center-photo-image object-cover"
                 sizes="(max-width: 640px) 72vw, (max-width: 1024px) 46vw, 36vw"
               />
+              {incomingCenterPhoto ? (
+                <Image
+                  key={incomingCenterPhoto.id}
+                  src={incomingCenterPhoto.public_url}
+                  alt="Фото мероприятия"
+                  fill
+                  className={`live-center-photo-image object-cover opacity-0 ${
+                    isIncomingCenterPhotoReady ? "animate-live-main-photo" : ""
+                  }`}
+                  sizes="(max-width: 640px) 72vw, (max-width: 1024px) 46vw, 36vw"
+                  onLoad={() => setIsIncomingCenterPhotoReady(true)}
+                  onError={() => {
+                    setIncomingCenterPhoto(null);
+                    setIsIncomingCenterPhotoReady(false);
+                  }}
+                />
+              ) : null}
             </figure>
           </div>
         </section>
@@ -157,7 +213,13 @@ function SideColumn({
   direction: "up" | "down";
   position: "left" | "right";
 }) {
-  const repeatedItems = [...items, ...items];
+  const [displayItems, setDisplayItems] = useState(items);
+  const [pendingItems, setPendingItems] = useState<SideItem[] | null>(null);
+  const itemsSignature = useMemo(() => createSideItemsSignature(items), [items]);
+  const displayItemsSignature = useMemo(
+    () => createSideItemsSignature(displayItems),
+    [displayItems],
+  );
   const animationClass =
     direction === "down" ? "animate-live-column-down" : "animate-live-column-up";
   const positionClass =
@@ -165,17 +227,40 @@ function SideColumn({
       ? "left-3 sm:left-6 lg:left-10"
       : "right-3 sm:right-6 lg:right-10";
 
+  useEffect(() => {
+    if (itemsSignature === displayItemsSignature) return;
+    setPendingItems(items);
+  }, [displayItemsSignature, items, itemsSignature]);
+
+  const handleAnimationIteration = () => {
+    if (!pendingItems) return;
+    setDisplayItems(pendingItems);
+    setPendingItems(null);
+  };
+
   return (
     <aside
       aria-hidden="true"
       className={`live-side-column-mask pointer-events-none absolute bottom-8 top-0 z-0 w-[clamp(4.6rem,14vw,14rem)] overflow-hidden bg-transparent ${positionClass}`}
     >
-      <div className={`flex flex-col gap-4 bg-transparent will-change-transform sm:gap-5 ${animationClass}`}>
-        {repeatedItems.map((item, index) => (
-          <SideTile key={`${item.id}-${index}`} item={item} index={index} />
-        ))}
+      <div
+        className={`flex flex-col bg-transparent will-change-transform ${animationClass}`}
+        onAnimationIteration={handleAnimationIteration}
+      >
+        <SideColumnSequence items={displayItems} cloneIndex={0} />
+        <SideColumnSequence items={displayItems} cloneIndex={1} />
       </div>
     </aside>
+  );
+}
+
+function SideColumnSequence({ items, cloneIndex }: { items: SideItem[]; cloneIndex: number }) {
+  return (
+    <div className="flex flex-col gap-4 bg-transparent pb-4 sm:gap-5 sm:pb-5">
+      {items.map((item, index) => (
+        <SideTile key={`${item.id}-${cloneIndex}`} item={item} index={index} />
+      ))}
+    </div>
   );
 }
 
@@ -271,4 +356,8 @@ function createSideItems(photos: LiveScreenPhoto[], side: "left" | "right"): Sid
   });
 
   return items;
+}
+
+function createSideItemsSignature(items: SideItem[]) {
+  return items.map((item) => item.id).join("|");
 }
