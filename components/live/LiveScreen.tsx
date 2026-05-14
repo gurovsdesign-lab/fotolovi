@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import type { CSSProperties } from "react";
-import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { LIVE_REFRESH_MS } from "@/lib/constants";
 import type { LiveScreenEvent, LiveScreenPhoto } from "@/types/live";
@@ -10,9 +10,7 @@ import { LiveEmptyState } from "./LiveEmptyState";
 
 const CENTER_PHOTO_INTERVAL_MS = 4500;
 const CENTER_PHOTO_TRANSITION_MS = 900;
-const SNAKE_VISIBLE_SLOT_COUNT = 8;
-const SNAKE_MIN_QUEUE_LENGTH = 12;
-const SIDE_VISIBLE_SLOT_COUNT = 4;
+const SNAKE_MIN_QUEUE_LENGTH = 16;
 const SNAKE_STEP_MS = 5200;
 
 type SideItem =
@@ -32,17 +30,12 @@ type SideItem =
 
 type SnakeState = {
   queue: SideItem[];
-  headIndex: number;
 };
 
-type SnakeAction =
-  | {
-      type: "sync";
-      photos: LiveScreenPhoto[];
-    }
-  | {
-      type: "step";
-    };
+type SnakeAction = {
+  type: "sync";
+  photos: LiveScreenPhoto[];
+};
 
 const placeholderStyles = [
   "bg-[linear-gradient(145deg,rgba(255,255,255,0.072),rgba(255,255,255,0.032))]",
@@ -236,21 +229,19 @@ export function LiveScreen({
 
 function SnakeSideColumns({ photos }: { photos: LiveScreenPhoto[] }) {
   const latestPhotosRef = useRef(photos);
-  const [{ queue, headIndex }, dispatchSnakeAction] = useReducer(
+  const [{ queue }, dispatchSnakeAction] = useReducer(
     snakeReducer,
     photos,
     createInitialSnakeState,
   );
-  const [isMoving, setIsMoving] = useState(false);
   const photosSignature = useMemo(() => createPhotosSignature(photos), [photos]);
-  const queueSignature = useMemo(() => createSideItemsSignature(queue), [queue]);
   const leftColumnItems = useMemo(
-    () => createSideColumnTrackItems(queue, headIndex, "left"),
-    [headIndex, queue],
+    () => createSideColumnCycleItems(queue, "left"),
+    [queue],
   );
   const rightColumnItems = useMemo(
-    () => createSideColumnTrackItems(queue, headIndex, "right"),
-    [headIndex, queue],
+    () => createSideColumnCycleItems(queue, "right"),
+    [queue],
   );
 
   useEffect(() => {
@@ -259,34 +250,12 @@ function SnakeSideColumns({ photos }: { photos: LiveScreenPhoto[] }) {
 
   useEffect(() => {
     dispatchSnakeAction({ type: "sync", photos: latestPhotosRef.current });
-    setIsMoving(false);
   }, [photosSignature]);
-
-  useEffect(() => {
-    if (!queue.length || isMoving) return;
-
-    const start = window.setTimeout(() => {
-      setIsMoving(true);
-    }, 80);
-
-    return () => window.clearTimeout(start);
-  }, [headIndex, isMoving, queue.length, queueSignature]);
-
-  useEffect(() => {
-    if (!isMoving || !queue.length) return;
-
-    const step = window.setTimeout(() => {
-      dispatchSnakeAction({ type: "step" });
-      setIsMoving(false);
-    }, SNAKE_STEP_MS);
-
-    return () => window.clearTimeout(step);
-  }, [isMoving, queue.length]);
 
   return (
     <>
-      <SideColumn items={leftColumnItems} direction="down" position="left" isMoving={isMoving} />
-      <SideColumn items={rightColumnItems} direction="up" position="right" isMoving={isMoving} />
+      <SideColumn items={leftColumnItems} direction="down" position="left" />
+      <SideColumn items={rightColumnItems} direction="up" position="right" />
     </>
   );
 }
@@ -294,31 +263,12 @@ function SnakeSideColumns({ photos }: { photos: LiveScreenPhoto[] }) {
 function createInitialSnakeState(photos: LiveScreenPhoto[]): SnakeState {
   return {
     queue: reconcileSnakeQueue([], photos),
-    headIndex: 0,
   };
 }
 
 function snakeReducer(state: SnakeState, action: SnakeAction): SnakeState {
-  if (action.type === "step") {
-    return {
-      ...state,
-      headIndex: normalizeSnakeIndex(state.headIndex + 1, state.queue.length),
-    };
-  }
-
-  const currentVisibleItems = getCurrentVisibleSnakeItems(state.queue, state.headIndex);
-  const visibleTailItem = currentVisibleItems[SNAKE_VISIBLE_SLOT_COUNT - 1] ?? null;
-  const queue = reconcileSnakeQueue(state.queue, action.photos, visibleTailItem?.id ?? null);
-  const nextHeadItem = currentVisibleItems.find((item) =>
-    queue.some((nextItem) => nextItem.id === item.id),
-  );
-  const nextHeadIndex = nextHeadItem
-    ? queue.findIndex((item) => item.id === nextHeadItem.id)
-    : normalizeSnakeIndex(state.headIndex, queue.length);
-
   return {
-    queue,
-    headIndex: nextHeadIndex >= 0 ? nextHeadIndex : 0,
+    queue: reconcileSnakeQueue(state.queue, action.photos),
   };
 }
 
@@ -326,33 +276,18 @@ function SideColumn({
   items,
   direction,
   position,
-  isMoving,
 }: {
   items: SideItem[];
   direction: "up" | "down";
   position: "left" | "right";
-  isMoving: boolean;
 }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [stepDistance, setStepDistance] = useState(0);
   const positionClass =
     position === "left"
       ? "left-3 sm:left-6 lg:left-10"
       : "right-3 sm:right-6 lg:right-10";
   const trackStyle = {
-    "--live-snake-step-distance": `${stepDistance}px`,
-    "--live-snake-step-duration": `${SNAKE_STEP_MS}ms`,
+    "--live-snake-cycle-duration": `${items.length * SNAKE_STEP_MS}ms`,
   } as CSSProperties;
-
-  useLayoutEffect(() => {
-    const track = trackRef.current;
-    const firstItem = track?.firstElementChild;
-    if (!(track instanceof HTMLElement) || !(firstItem instanceof HTMLElement)) return;
-
-    const styles = window.getComputedStyle(track);
-    const gap = Number.parseFloat(styles.rowGap || styles.gap || "0");
-    setStepDistance(firstItem.offsetHeight + (Number.isFinite(gap) ? gap : 0));
-  }, [items]);
 
   return (
     <aside
@@ -360,17 +295,24 @@ function SideColumn({
       className={`live-side-column-mask pointer-events-none absolute bottom-8 top-0 z-0 w-[clamp(4.6rem,14vw,14rem)] overflow-hidden bg-transparent ${positionClass}`}
     >
       <div
-        ref={trackRef}
-        className="live-snake-column-track flex flex-col gap-4 bg-transparent pb-4 will-change-transform sm:gap-5 sm:pb-5"
+        className="live-snake-column-track flex flex-col bg-transparent will-change-transform"
         data-direction={direction}
-        data-moving={isMoving ? "true" : "false"}
         style={trackStyle}
       >
-        {items.map((item) => (
-          <SideTile key={item.id} item={item} />
-        ))}
+        <SideColumnSequence items={items} cloneIndex={0} />
+        <SideColumnSequence items={items} cloneIndex={1} />
       </div>
     </aside>
+  );
+}
+
+function SideColumnSequence({ items, cloneIndex }: { items: SideItem[]; cloneIndex: number }) {
+  return (
+    <div className="flex flex-col gap-4 bg-transparent pb-4 sm:gap-5 sm:pb-5">
+      {items.map((item) => (
+        <SideTile key={`${item.id}-${cloneIndex}`} item={item} />
+      ))}
+    </div>
   );
 }
 
@@ -424,11 +366,7 @@ function PhotoBorder() {
   );
 }
 
-function reconcileSnakeQueue(
-  currentQueue: SideItem[],
-  photos: LiveScreenPhoto[],
-  insertAppendedBeforeItemId?: string | null,
-): SideItem[] {
+function reconcileSnakeQueue(currentQueue: SideItem[], photos: LiveScreenPhoto[]): SideItem[] {
   const photosById = new Map(photos.map((photo) => [photo.id, photo]));
   const retainedPhotoItems: SideItem[] = [];
   const retainedPhotoIds = new Set<string>();
@@ -449,39 +387,13 @@ function reconcileSnakeQueue(
   const appendedPhotoItems = photos
     .filter((photo) => !retainedPhotoIds.has(photo.id))
     .map((photo, index) => createPhotoSideItem(photo, retainedPhotoItems.length + index));
-  const photoItems = insertSnakePhotoItems(
-    retainedPhotoItems,
-    appendedPhotoItems,
-    insertAppendedBeforeItemId,
-  );
+  const photoItems = [...retainedPhotoItems, ...appendedPhotoItems];
   const placeholderCount = Math.max(0, SNAKE_MIN_QUEUE_LENGTH - photoItems.length);
   const placeholderItems = Array.from({ length: placeholderCount }, (_, index) =>
     createPlaceholderSideItem(index, photoItems.length + index),
   );
 
   return [...photoItems, ...placeholderItems];
-}
-
-function insertSnakePhotoItems(
-  retainedPhotoItems: SideItem[],
-  appendedPhotoItems: SideItem[],
-  insertBeforeItemId?: string | null,
-) {
-  if (!appendedPhotoItems.length) return retainedPhotoItems;
-
-  const insertIndex = insertBeforeItemId
-    ? retainedPhotoItems.findIndex((item) => item.id === insertBeforeItemId)
-    : -1;
-
-  if (insertIndex < 0) {
-    return [...retainedPhotoItems, ...appendedPhotoItems];
-  }
-
-  return [
-    ...retainedPhotoItems.slice(0, insertIndex),
-    ...appendedPhotoItems,
-    ...retainedPhotoItems.slice(insertIndex),
-  ];
 }
 
 function createPhotoSideItem(photo: LiveScreenPhoto, index: number): SideItem {
@@ -503,35 +415,16 @@ function createPlaceholderSideItem(placeholderIndex: number, visualIndex: number
   };
 }
 
-function createSideColumnTrackItems(
+function createSideColumnCycleItems(
   queue: SideItem[],
-  headIndex: number,
   position: "left" | "right",
 ): SideItem[] {
   if (!queue.length) return [];
 
-  if (position === "left") {
-    return [
-      getSnakeQueueItem(queue, headIndex + 1),
-      ...Array.from({ length: SIDE_VISIBLE_SLOT_COUNT }, (_, index) =>
-        getSnakeQueueItem(queue, headIndex - index),
-      ),
-    ];
-  }
-
-  return [
-    ...Array.from({ length: SIDE_VISIBLE_SLOT_COUNT }, (_, index) =>
-      getSnakeQueueItem(queue, headIndex - (SNAKE_VISIBLE_SLOT_COUNT - 1 - index)),
-    ),
-    getSnakeQueueItem(queue, headIndex - SIDE_VISIBLE_SLOT_COUNT + 1),
-  ];
-}
-
-function getCurrentVisibleSnakeItems(queue: SideItem[], headIndex: number) {
-  if (!queue.length) return [];
-
-  return Array.from({ length: SNAKE_VISIBLE_SLOT_COUNT }, (_, index) =>
-    getSnakeQueueItem(queue, headIndex - index),
+  return Array.from({ length: queue.length }, (_, index) =>
+    position === "left"
+      ? getSnakeQueueItem(queue, -index)
+      : getSnakeQueueItem(queue, index - 7),
   );
 }
 
@@ -542,10 +435,6 @@ function getSnakeQueueItem(queue: SideItem[], index: number) {
 function normalizeSnakeIndex(index: number, length: number) {
   if (!length) return 0;
   return ((index % length) + length) % length;
-}
-
-function createSideItemsSignature(items: SideItem[]) {
-  return items.map((item) => item.id).join("|");
 }
 
 function createPhotosSignature(photos: LiveScreenPhoto[]) {

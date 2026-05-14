@@ -51,6 +51,26 @@ img {
   }
 }
 
+@keyframes live-snake-column-up {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(0, -50%, 0);
+  }
+}
+
+@keyframes live-snake-column-down {
+  from {
+    transform: translate3d(0, -50%, 0);
+  }
+
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 @keyframes live-glow-drift {
   0% {
     transform: translate3d(-2.8%, 1.8%, 0) scale(1);
@@ -139,25 +159,17 @@ img {
 }
 
 .live-snake-column-track {
-  transition: none;
+  animation-duration: var(--live-snake-cycle-duration);
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
 }
 
 .live-snake-column-track[data-direction="down"] {
-  transform: translate3d(0, calc(var(--live-snake-step-distance) * -1), 0);
-}
-
-.live-snake-column-track[data-direction="down"][data-moving="true"] {
-  transform: translate3d(0, 0, 0);
-  transition: transform var(--live-snake-step-duration) linear;
+  animation-name: live-snake-column-down;
 }
 
 .live-snake-column-track[data-direction="up"] {
-  transform: translate3d(0, 0, 0);
-}
-
-.live-snake-column-track[data-direction="up"][data-moving="true"] {
-  transform: translate3d(0, calc(var(--live-snake-step-distance) * -1), 0);
-  transition: transform var(--live-snake-step-duration) linear;
+  animation-name: live-snake-column-up;
 }
 
 .live-ambient-glow {
