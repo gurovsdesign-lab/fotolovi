@@ -93,16 +93,15 @@ export function LiveScreen({
       <svg
         aria-hidden="true"
         className="live-ambient-glow pointer-events-none absolute z-0"
-        viewBox="0 0 1200 760"
+        viewBox="0 0 620 460"
         preserveAspectRatio="none"
       >
         <filter id="live-ambient-blur" x="-35%" y="-35%" width="170%" height="170%">
-          <feGaussianBlur stdDeviation="86" />
+          <feGaussianBlur stdDeviation="58" />
         </filter>
         <g filter="url(#live-ambient-blur)">
-          <ellipse cx="330" cy="338" rx="410" ry="250" fill="#D6B36A" opacity="0.14" />
-          <ellipse cx="640" cy="542" rx="440" ry="150" fill="#D6B36A" opacity="0.055" />
-          <ellipse cx="980" cy="610" rx="340" ry="170" fill="#D6B36A" opacity="0.035" />
+          <ellipse cx="300" cy="224" rx="210" ry="142" fill="#D6B36A" opacity="0.16" />
+          <ellipse cx="390" cy="282" rx="172" ry="84" fill="#D6B36A" opacity="0.06" />
         </g>
       </svg>
 
@@ -128,14 +127,13 @@ export function LiveScreen({
                 className="animate-live-main-photo live-center-photo-image object-cover"
                 sizes="(max-width: 640px) 72vw, (max-width: 1024px) 46vw, 36vw"
               />
-              <PhotoBorder />
             </figure>
           </div>
         </section>
 
       </main>
 
-      <div className="pointer-events-auto absolute bottom-5 right-4 z-50 hidden shrink-0 isolate items-center gap-[1.15rem] rounded-lg border border-white/10 bg-night p-3.5 shadow-[0_18px_80px_rgba(0,0,0,0.58)] md:flex lg:bottom-7 lg:right-12">
+      <div className="live-qr-glass pointer-events-auto absolute bottom-5 right-4 z-50 hidden shrink-0 isolate items-center gap-[1.15rem] p-3.5 md:flex lg:bottom-7 lg:right-12">
         <div className="rounded-md bg-white p-[0.58rem]">
           <QRCodeCanvas value={guestUrl} size={106} marginSize={1} />
         </div>

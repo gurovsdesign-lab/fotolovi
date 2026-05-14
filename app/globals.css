@@ -93,6 +93,28 @@ img {
   }
 }
 
+@keyframes live-ambient-orbit {
+  0% {
+    transform: translate3d(-50%, calc(-50% - 10vh), 0) scale(0.96);
+  }
+
+  25% {
+    transform: translate3d(calc(-50% + 13vw), -50%, 0) scale(1.02);
+  }
+
+  50% {
+    transform: translate3d(-50%, calc(-50% + 10vh), 0) scale(0.98);
+  }
+
+  75% {
+    transform: translate3d(calc(-50% - 13vw), -50%, 0) scale(1.015);
+  }
+
+  100% {
+    transform: translate3d(-50%, calc(-50% - 10vh), 0) scale(0.96);
+  }
+}
+
 .animate-live-column-up {
   animation: live-column-up 36s linear infinite;
 }
@@ -112,22 +134,23 @@ img {
 }
 
 .live-side-column-mask {
+  --live-side-fade-middle: rgba(0, 0, 0, 0.54);
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    rgba(0, 0, 0, 0.54) 18px,
+    var(--live-side-fade-middle) 18px,
     #000 42px,
     #000 calc(100% - 42px),
-    rgba(0, 0, 0, 0.54) calc(100% - 18px),
+    var(--live-side-fade-middle) calc(100% - 18px),
     transparent 100%
   );
   mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    rgba(0, 0, 0, 0.54) 18px,
+    var(--live-side-fade-middle) 18px,
     #000 42px,
     #000 calc(100% - 42px),
-    rgba(0, 0, 0, 0.54) calc(100% - 18px),
+    var(--live-side-fade-middle) calc(100% - 18px),
     transparent 100%
   );
   -webkit-mask-mode: alpha;
@@ -141,13 +164,11 @@ img {
 }
 
 .live-ambient-glow {
-  top: -18%;
-  right: -18%;
-  bottom: -18%;
-  left: -18%;
-  width: 136%;
-  height: 136%;
-  animation: live-glow-drift 16s ease-in-out infinite;
+  top: 50%;
+  left: 50%;
+  width: min(48vw, 38rem);
+  height: min(44vh, 28rem);
+  animation: live-ambient-orbit 10.75s ease-in-out infinite;
   opacity: 0.98;
   transform-origin: center;
   will-change: transform;
@@ -163,12 +184,13 @@ img {
 
 .live-main-photo-card {
   border-radius: 0.5rem;
+  outline: none;
   box-shadow: 0 24px 90px rgba(0, 0, 0, 0.52);
 }
 
 .live-center-photo-image {
   border-radius: inherit;
-  clip-path: inset(0 round 0.5rem);
+  outline: none;
 }
 
 .live-photo-border {
@@ -180,6 +202,19 @@ img {
   stroke: rgba(255, 255, 255, 0.14);
   stroke-width: 1;
   filter: drop-shadow(0 0 9px rgba(255, 255, 255, 0.035));
+}
+
+.live-qr-glass {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.035)),
+    rgba(18, 18, 18, 0.62);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 18px 80px rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
 }
 
 .live-main-glow::after {
