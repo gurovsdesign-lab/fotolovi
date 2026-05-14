@@ -9,9 +9,7 @@ import { LiveEmptyState } from "./LiveEmptyState";
 
 const CENTER_PHOTO_INTERVAL_MS = 4500;
 const SIDE_SEQUENCE_LENGTH = 7;
-const SIDE_VISIBLE_SLOTS_PER_COLUMN = 5;
-const SIDE_NO_PLACEHOLDER_PHOTO_COUNT = 7;
-const SIDE_FULL_REAL_PHOTO_COUNT = 10;
+const SIDE_REAL_ONLY_PHOTO_COUNT = 8;
 
 type SideItem =
   | {
@@ -250,46 +248,24 @@ function createSideItems(photos: LiveScreenPhoto[], side: "left" | "right"): Sid
     side === "left" ? index % 2 === 0 : index % 2 === 1,
   );
 
-  if (photos.length >= SIDE_FULL_REAL_PHOTO_COUNT) {
-    const fallbackStartIndex = side === "left" ? 0 : SIDE_VISIBLE_SLOTS_PER_COLUMN;
-    const sourcePhotos = sidePhotos.length ? sidePhotos : photos.slice(fallbackStartIndex);
-
-    return Array.from({ length: SIDE_VISIBLE_SLOTS_PER_COLUMN }, (_, index) => {
-      const photo = sourcePhotos[index % sourcePhotos.length];
-
-      return {
-        type: "photo",
-        id: `${photo.id}-${side}-${index}`,
-        publicUrl: photo.public_url,
-      };
-    });
-  }
-
-  if (photos.length >= SIDE_NO_PLACEHOLDER_PHOTO_COUNT) {
-    const sourcePhotos = sidePhotos.length ? sidePhotos : photos;
-
-    return Array.from({ length: SIDE_SEQUENCE_LENGTH }, (_, index) => {
-      const photo = sourcePhotos[index % sourcePhotos.length];
-
-      return {
-        type: "photo",
-        id: `${photo.id}-${side}-${index}`,
-        publicUrl: photo.public_url,
-      };
-    });
+  if (photos.length >= SIDE_REAL_ONLY_PHOTO_COUNT) {
+    return sidePhotos.map((photo): SideItem => ({
+      type: "photo",
+      id: `photo-${side}-${photo.id}`,
+      publicUrl: photo.public_url,
+    }));
   }
 
   const items = makePlaceholders();
-  const realSlotCount =
-    sidePhotos.length === 0 ? 0 : sidePhotos.length === 1 ? 3 : Math.min(5, sidePhotos.length + 2);
-  const photoSlots = side === "left" ? [1, 3, 5, 2, 4] : [2, 4, 5, 1, 3];
+  const photoSlots = side === "left" ? [1, 3, 5, 6] : [2, 4, 5, 6];
 
-  photoSlots.slice(0, realSlotCount).forEach((slotIndex, index) => {
-    const photo = sidePhotos[index % sidePhotos.length];
+  sidePhotos.forEach((photo, index) => {
+    const slotIndex = photoSlots[index];
+    if (slotIndex === undefined) return;
 
     items[slotIndex] = {
       type: "photo",
-      id: `${photo.id}-${side}-${slotIndex}`,
+      id: `photo-${side}-${photo.id}`,
       publicUrl: photo.public_url,
     };
   });
