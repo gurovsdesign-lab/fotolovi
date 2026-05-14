@@ -134,24 +134,27 @@ img {
 }
 
 .live-side-column-mask {
+  --live-side-fade-edge: transparent;
   --live-side-fade-middle: rgba(0, 0, 0, 0.54);
+  --live-side-fade-midpoint: 18px;
+  --live-side-fade-solid: 42px;
   -webkit-mask-image: linear-gradient(
     to bottom,
-    transparent 0,
-    var(--live-side-fade-middle) 18px,
-    #000 42px,
-    #000 calc(100% - 42px),
-    var(--live-side-fade-middle) calc(100% - 18px),
-    transparent 100%
+    var(--live-side-fade-edge) 0,
+    var(--live-side-fade-middle) var(--live-side-fade-midpoint),
+    #000 var(--live-side-fade-solid),
+    #000 calc(100% - var(--live-side-fade-solid)),
+    var(--live-side-fade-middle) calc(100% - var(--live-side-fade-midpoint)),
+    var(--live-side-fade-edge) 100%
   );
   mask-image: linear-gradient(
     to bottom,
-    transparent 0,
-    var(--live-side-fade-middle) 18px,
-    #000 42px,
-    #000 calc(100% - 42px),
-    var(--live-side-fade-middle) calc(100% - 18px),
-    transparent 100%
+    var(--live-side-fade-edge) 0,
+    var(--live-side-fade-middle) var(--live-side-fade-midpoint),
+    #000 var(--live-side-fade-solid),
+    #000 calc(100% - var(--live-side-fade-solid)),
+    var(--live-side-fade-middle) calc(100% - var(--live-side-fade-midpoint)),
+    var(--live-side-fade-edge) 100%
   );
   -webkit-mask-mode: alpha;
   mask-mode: alpha;
@@ -166,9 +169,9 @@ img {
 .live-ambient-glow {
   top: 50%;
   left: 50%;
-  width: min(48vw, 38rem);
-  height: min(44vh, 28rem);
-  animation: live-ambient-orbit 10.75s ease-in-out infinite;
+  width: min(72vw, 57rem);
+  height: min(66vh, 42rem);
+  animation: live-ambient-orbit 21.5s ease-in-out infinite;
   opacity: 0.98;
   transform-origin: center;
   will-change: transform;
@@ -215,6 +218,32 @@ img {
     0 18px 80px rgba(0, 0, 0, 0.48);
   backdrop-filter: blur(14px) saturate(135%);
   -webkit-backdrop-filter: blur(14px) saturate(135%);
+}
+
+.live-photo-count-footer::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(to top, #121212 0%, rgba(18, 18, 18, 0.8) 45%, transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    transparent 28%,
+    #000 40%,
+    #000 60%,
+    transparent 72%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    transparent 28%,
+    #000 40%,
+    #000 60%,
+    transparent 72%,
+    transparent 100%
+  );
+  content: "";
 }
 
 .live-main-glow::after {

@@ -143,7 +143,7 @@ export function LiveScreen({
         </div>
       </div>
 
-      <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end bg-gradient-to-t from-night via-night/80 to-transparent px-5 pb-7 pt-24 sm:px-8 lg:px-12">
+      <footer className="live-photo-count-footer pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-center px-5 pb-7 pt-24 sm:px-8 lg:px-12">
         <p className="text-lg font-medium text-white/80">{visiblePhotos.length} фото загружено</p>
       </footer>
     </div>
