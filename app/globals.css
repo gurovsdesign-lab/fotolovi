@@ -115,24 +115,29 @@ img {
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    rgba(0, 0, 0, 0.42) 18px,
+    rgba(0, 0, 0, 0.54) 18px,
     #000 42px,
     #000 calc(100% - 42px),
-    rgba(0, 0, 0, 0.42) calc(100% - 18px),
+    rgba(0, 0, 0, 0.54) calc(100% - 18px),
     transparent 100%
   );
   mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    rgba(0, 0, 0, 0.42) 18px,
+    rgba(0, 0, 0, 0.54) 18px,
     #000 42px,
     #000 calc(100% - 42px),
-    rgba(0, 0, 0, 0.42) calc(100% - 18px),
+    rgba(0, 0, 0, 0.54) calc(100% - 18px),
     transparent 100%
   );
   -webkit-mask-mode: alpha;
   mask-mode: alpha;
-  isolation: isolate;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  background: none;
+  box-shadow: none;
 }
 
 .live-ambient-glow {
@@ -153,11 +158,17 @@ img {
 }
 
 .live-side-photo-card {
-  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.34);
+  box-shadow: none;
 }
 
 .live-main-photo-card {
+  border-radius: 0.5rem;
   box-shadow: 0 24px 90px rgba(0, 0, 0, 0.52);
+}
+
+.live-center-photo-image {
+  border-radius: inherit;
+  clip-path: inset(0 round 0.5rem);
 }
 
 .live-photo-border {

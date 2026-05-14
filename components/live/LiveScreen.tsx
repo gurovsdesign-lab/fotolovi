@@ -125,7 +125,7 @@ export function LiveScreen({
                 alt="Фото мероприятия"
                 fill
                 priority
-                className="animate-live-main-photo object-cover"
+                className="animate-live-main-photo live-center-photo-image object-cover"
                 sizes="(max-width: 640px) 72vw, (max-width: 1024px) 46vw, 36vw"
               />
               <PhotoBorder />
@@ -190,7 +190,7 @@ function SideTile({ item, index }: { item: SideItem; index: number }) {
     return (
       <div
         data-live-side-item="placeholder"
-        className={`relative shrink-0 overflow-hidden rounded-lg border border-white/10 shadow-[0_18px_70px_rgba(0,0,0,0.34)] ${aspectClass} ${item.className}`}
+        className={`relative shrink-0 overflow-hidden rounded-lg border border-white/10 ${aspectClass} ${item.className}`}
       >
         <div className="absolute inset-0 ring-1 ring-inset ring-white/10" />
       </div>
