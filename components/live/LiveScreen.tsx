@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 import { LIVE_REFRESH_MS } from "@/lib/constants";
 import type { LiveScreenEvent, LiveScreenPhoto } from "@/types/live";
@@ -9,19 +10,37 @@ import { LiveEmptyState } from "./LiveEmptyState";
 
 const CENTER_PHOTO_INTERVAL_MS = 4500;
 const CENTER_PHOTO_TRANSITION_MS = 900;
-const SIDE_SEQUENCE_LENGTH = 7;
-const SIDE_REAL_ONLY_PHOTO_COUNT = 6;
+const SNAKE_VISIBLE_SLOT_COUNT = 8;
+const SIDE_VISIBLE_SLOT_COUNT = 4;
+const SNAKE_STEP_MS = 5200;
 
 type SideItem =
   | {
       type: "photo";
       id: string;
+      photoId: string;
       publicUrl: string;
+      aspectClass: string;
     }
   | {
       type: "placeholder";
       id: string;
       className: string;
+      aspectClass: string;
+    };
+
+type SnakeState = {
+  queue: SideItem[];
+  headIndex: number;
+};
+
+type SnakeAction =
+  | {
+      type: "sync";
+      photos: LiveScreenPhoto[];
+    }
+  | {
+      type: "step";
     };
 
 const placeholderStyles = [
@@ -75,8 +94,6 @@ export function LiveScreen({
   const centerPhoto = visiblePhotos.length
     ? visiblePhotos[centerPhotoIndex % visiblePhotos.length]
     : null;
-  const leftColumnItems = useMemo(() => createSideItems(visiblePhotos, "left"), [visiblePhotos]);
-  const rightColumnItems = useMemo(() => createSideItems(visiblePhotos, "right"), [visiblePhotos]);
   const visiblePhotoIds = useMemo(
     () => new Set(visiblePhotos.map((photo) => photo.id)),
     [visiblePhotos],
@@ -155,8 +172,7 @@ export function LiveScreen({
         </g>
       </svg>
 
-      <SideColumn items={leftColumnItems} direction="down" position="left" />
-      <SideColumn items={rightColumnItems} direction="up" position="right" />
+      <SnakeSideColumns photos={visiblePhotos} />
 
       <header className="relative z-20 px-5 pb-1 pt-7 text-center sm:px-8 lg:px-12">
         <h1 className="live-title mx-auto py-2 font-display text-[clamp(2.4rem,5.2vw,4rem)] leading-[1.12] text-white">
@@ -217,46 +233,119 @@ export function LiveScreen({
   );
 }
 
+function SnakeSideColumns({ photos }: { photos: LiveScreenPhoto[] }) {
+  const [{ queue, headIndex }, dispatchSnakeAction] = useReducer(
+    snakeReducer,
+    photos,
+    createInitialSnakeState,
+  );
+  const [isMoving, setIsMoving] = useState(false);
+  const queueSignature = useMemo(() => createSideItemsSignature(queue), [queue]);
+  const leftColumnItems = useMemo(
+    () => createSideColumnTrackItems(queue, headIndex, "left"),
+    [headIndex, queue],
+  );
+  const rightColumnItems = useMemo(
+    () => createSideColumnTrackItems(queue, headIndex, "right"),
+    [headIndex, queue],
+  );
+
+  useEffect(() => {
+    dispatchSnakeAction({ type: "sync", photos });
+    setIsMoving(false);
+  }, [photos]);
+
+  useEffect(() => {
+    if (!queue.length || isMoving) return;
+
+    const start = window.setTimeout(() => {
+      setIsMoving(true);
+    }, 80);
+
+    return () => window.clearTimeout(start);
+  }, [headIndex, isMoving, queue.length, queueSignature]);
+
+  useEffect(() => {
+    if (!isMoving || !queue.length) return;
+
+    const step = window.setTimeout(() => {
+      dispatchSnakeAction({ type: "step" });
+      setIsMoving(false);
+    }, SNAKE_STEP_MS);
+
+    return () => window.clearTimeout(step);
+  }, [isMoving, queue.length]);
+
+  return (
+    <>
+      <SideColumn items={leftColumnItems} direction="down" position="left" isMoving={isMoving} />
+      <SideColumn items={rightColumnItems} direction="up" position="right" isMoving={isMoving} />
+    </>
+  );
+}
+
+function createInitialSnakeState(photos: LiveScreenPhoto[]): SnakeState {
+  return {
+    queue: reconcileSnakeQueue([], photos),
+    headIndex: 0,
+  };
+}
+
+function snakeReducer(state: SnakeState, action: SnakeAction): SnakeState {
+  if (action.type === "step") {
+    return {
+      ...state,
+      headIndex: normalizeSnakeIndex(state.headIndex + 1, state.queue.length),
+    };
+  }
+
+  const currentVisibleItems = getCurrentVisibleSnakeItems(state.queue, state.headIndex);
+  const visibleTailItem = currentVisibleItems[SNAKE_VISIBLE_SLOT_COUNT - 1] ?? null;
+  const queue = reconcileSnakeQueue(state.queue, action.photos, visibleTailItem?.id ?? null);
+  const nextHeadItem = currentVisibleItems.find((item) =>
+    queue.some((nextItem) => nextItem.id === item.id),
+  );
+  const nextHeadIndex = nextHeadItem
+    ? queue.findIndex((item) => item.id === nextHeadItem.id)
+    : normalizeSnakeIndex(state.headIndex, queue.length);
+
+  return {
+    queue,
+    headIndex: nextHeadIndex >= 0 ? nextHeadIndex : 0,
+  };
+}
+
 function SideColumn({
   items,
   direction,
   position,
+  isMoving,
 }: {
   items: SideItem[];
   direction: "up" | "down";
   position: "left" | "right";
+  isMoving: boolean;
 }) {
-  const [displayItems, setDisplayItems] = useState(items);
-  const [pendingItems, setPendingItems] = useState<SideItem[] | null>(null);
-  const itemsSignature = useMemo(() => createSideItemsSignature(items), [items]);
-  const displayItemsSignature = useMemo(
-    () => createSideItemsSignature(displayItems),
-    [displayItems],
-  );
-  const animationClass =
-    direction === "down" ? "animate-live-column-down" : "animate-live-column-up";
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [stepDistance, setStepDistance] = useState(0);
   const positionClass =
     position === "left"
       ? "left-3 sm:left-6 lg:left-10"
       : "right-3 sm:right-6 lg:right-10";
+  const trackStyle = {
+    "--live-snake-step-distance": `${stepDistance}px`,
+    "--live-snake-step-duration": `${SNAKE_STEP_MS}ms`,
+  } as CSSProperties;
 
-  useEffect(() => {
-    if (itemsSignature === displayItemsSignature) return;
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    const firstItem = track?.firstElementChild;
+    if (!(track instanceof HTMLElement) || !(firstItem instanceof HTMLElement)) return;
 
-    if (hasRemovedPhotoItems(displayItems, items)) {
-      setDisplayItems(replaceRemovedPhotoItems(displayItems, items, position));
-      setPendingItems(items);
-      return;
-    }
-
-    setPendingItems(items);
-  }, [displayItems, displayItemsSignature, items, itemsSignature, position]);
-
-  const handleAnimationIteration = () => {
-    if (!pendingItems) return;
-    setDisplayItems(pendingItems);
-    setPendingItems(null);
-  };
+    const styles = window.getComputedStyle(track);
+    const gap = Number.parseFloat(styles.rowGap || styles.gap || "0");
+    setStepDistance(firstItem.offsetHeight + (Number.isFinite(gap) ? gap : 0));
+  }, [items]);
 
   return (
     <aside
@@ -264,34 +353,26 @@ function SideColumn({
       className={`live-side-column-mask pointer-events-none absolute bottom-8 top-0 z-0 w-[clamp(4.6rem,14vw,14rem)] overflow-hidden bg-transparent ${positionClass}`}
     >
       <div
-        className={`flex flex-col bg-transparent will-change-transform ${animationClass}`}
-        onAnimationIteration={handleAnimationIteration}
+        ref={trackRef}
+        className="live-snake-column-track flex flex-col gap-4 bg-transparent pb-4 will-change-transform sm:gap-5 sm:pb-5"
+        data-direction={direction}
+        data-moving={isMoving ? "true" : "false"}
+        style={trackStyle}
       >
-        <SideColumnSequence items={displayItems} cloneIndex={0} />
-        <SideColumnSequence items={displayItems} cloneIndex={1} />
+        {items.map((item) => (
+          <SideTile key={item.id} item={item} />
+        ))}
       </div>
     </aside>
   );
 }
 
-function SideColumnSequence({ items, cloneIndex }: { items: SideItem[]; cloneIndex: number }) {
-  return (
-    <div className="flex flex-col gap-4 bg-transparent pb-4 sm:gap-5 sm:pb-5">
-      {items.map((item, index) => (
-        <SideTile key={`${item.id}-${cloneIndex}`} item={item} index={index} />
-      ))}
-    </div>
-  );
-}
-
-function SideTile({ item, index }: { item: SideItem; index: number }) {
-  const aspectClass = sideAspectClasses[index % sideAspectClasses.length];
-
+function SideTile({ item }: { item: SideItem }) {
   if (item.type === "placeholder") {
     return (
       <div
         data-live-side-item="placeholder"
-        className={`relative shrink-0 overflow-hidden rounded-lg border border-white/10 ${aspectClass} ${item.className}`}
+        className={`relative shrink-0 overflow-hidden rounded-lg border border-white/10 ${item.aspectClass} ${item.className}`}
       >
         <div className="absolute inset-0 ring-1 ring-inset ring-white/10" />
       </div>
@@ -301,7 +382,7 @@ function SideTile({ item, index }: { item: SideItem; index: number }) {
   return (
     <figure
       data-live-side-item="photo"
-      className={`live-photo-card live-side-photo-card relative shrink-0 overflow-hidden rounded-lg bg-transparent ${aspectClass}`}
+      className={`live-photo-card live-side-photo-card relative shrink-0 overflow-hidden rounded-lg bg-transparent ${item.aspectClass}`}
     >
       <Image
         src={item.publicUrl}
@@ -336,73 +417,128 @@ function PhotoBorder() {
   );
 }
 
-function createSideItems(photos: LiveScreenPhoto[], side: "left" | "right"): SideItem[] {
-  const makePlaceholders = () =>
-    Array.from({ length: SIDE_SEQUENCE_LENGTH }, (_, index): SideItem => ({
-      type: "placeholder",
-      id: `placeholder-${side}-${index}`,
-      className:
-        placeholderStyles[(index + (side === "left" ? 0 : 2)) % placeholderStyles.length],
-    }));
+function reconcileSnakeQueue(
+  currentQueue: SideItem[],
+  photos: LiveScreenPhoto[],
+  insertAppendedBeforeItemId?: string | null,
+): SideItem[] {
+  const photosById = new Map(photos.map((photo) => [photo.id, photo]));
+  const retainedPhotoItems: SideItem[] = [];
+  const retainedPhotoIds = new Set<string>();
 
-  if (!photos.length) {
-    return makePlaceholders();
-  }
+  currentQueue.forEach((item) => {
+    if (!isPhotoItem(item)) return;
 
-  const sidePhotos = photos.filter((_, index) =>
-    side === "left" ? index % 2 === 0 : index % 2 === 1,
-  );
+    const photo = photosById.get(item.photoId);
+    if (!photo || retainedPhotoIds.has(photo.id)) return;
 
-  if (photos.length >= SIDE_REAL_ONLY_PHOTO_COUNT) {
-    return sidePhotos.map((photo): SideItem => ({
-      type: "photo",
-      id: `photo-${side}-${photo.id}`,
+    retainedPhotoIds.add(photo.id);
+    retainedPhotoItems.push({
+      ...item,
       publicUrl: photo.public_url,
-    }));
-  }
-
-  const items = makePlaceholders();
-  const photoSlots = side === "left" ? [1, 3, 5, 6] : [2, 4, 5, 6];
-
-  sidePhotos.forEach((photo, index) => {
-    const slotIndex = photoSlots[index];
-    if (slotIndex === undefined) return;
-
-    items[slotIndex] = {
-      type: "photo",
-      id: `photo-${side}-${photo.id}`,
-      publicUrl: photo.public_url,
-    };
+    });
   });
 
-  return items;
+  const appendedPhotoItems = photos
+    .filter((photo) => !retainedPhotoIds.has(photo.id))
+    .map((photo, index) => createPhotoSideItem(photo, retainedPhotoItems.length + index));
+  const photoItems = insertSnakePhotoItems(
+    retainedPhotoItems,
+    appendedPhotoItems,
+    insertAppendedBeforeItemId,
+  );
+  const placeholderCount = Math.max(0, SNAKE_VISIBLE_SLOT_COUNT - photoItems.length);
+  const placeholderItems = Array.from({ length: placeholderCount }, (_, index) =>
+    createPlaceholderSideItem(index, photoItems.length + index),
+  );
+
+  return [...photoItems, ...placeholderItems];
+}
+
+function insertSnakePhotoItems(
+  retainedPhotoItems: SideItem[],
+  appendedPhotoItems: SideItem[],
+  insertBeforeItemId?: string | null,
+) {
+  if (!appendedPhotoItems.length) return retainedPhotoItems;
+
+  const insertIndex = insertBeforeItemId
+    ? retainedPhotoItems.findIndex((item) => item.id === insertBeforeItemId)
+    : -1;
+
+  if (insertIndex < 0) {
+    return [...retainedPhotoItems, ...appendedPhotoItems];
+  }
+
+  return [
+    ...retainedPhotoItems.slice(0, insertIndex),
+    ...appendedPhotoItems,
+    ...retainedPhotoItems.slice(insertIndex),
+  ];
+}
+
+function createPhotoSideItem(photo: LiveScreenPhoto, index: number): SideItem {
+  return {
+    type: "photo",
+    id: `photo-${photo.id}`,
+    photoId: photo.id,
+    publicUrl: photo.public_url,
+    aspectClass: sideAspectClasses[index % sideAspectClasses.length],
+  };
+}
+
+function createPlaceholderSideItem(placeholderIndex: number, visualIndex: number): SideItem {
+  return {
+    type: "placeholder",
+    id: `placeholder-${placeholderIndex}`,
+    className: placeholderStyles[visualIndex % placeholderStyles.length],
+    aspectClass: sideAspectClasses[visualIndex % sideAspectClasses.length],
+  };
+}
+
+function createSideColumnTrackItems(
+  queue: SideItem[],
+  headIndex: number,
+  position: "left" | "right",
+): SideItem[] {
+  if (!queue.length) return [];
+
+  if (position === "left") {
+    return [
+      getSnakeQueueItem(queue, headIndex + 1),
+      ...Array.from({ length: SIDE_VISIBLE_SLOT_COUNT }, (_, index) =>
+        getSnakeQueueItem(queue, headIndex - index),
+      ),
+    ];
+  }
+
+  return [
+    ...Array.from({ length: SIDE_VISIBLE_SLOT_COUNT }, (_, index) =>
+      getSnakeQueueItem(queue, headIndex - (SNAKE_VISIBLE_SLOT_COUNT - 1 - index)),
+    ),
+    getSnakeQueueItem(queue, headIndex - SIDE_VISIBLE_SLOT_COUNT + 1),
+  ];
+}
+
+function getCurrentVisibleSnakeItems(queue: SideItem[], headIndex: number) {
+  if (!queue.length) return [];
+
+  return Array.from({ length: SNAKE_VISIBLE_SLOT_COUNT }, (_, index) =>
+    getSnakeQueueItem(queue, headIndex - index),
+  );
+}
+
+function getSnakeQueueItem(queue: SideItem[], index: number) {
+  return queue[normalizeSnakeIndex(index, queue.length)];
+}
+
+function normalizeSnakeIndex(index: number, length: number) {
+  if (!length) return 0;
+  return ((index % length) + length) % length;
 }
 
 function createSideItemsSignature(items: SideItem[]) {
   return items.map((item) => item.id).join("|");
-}
-
-function hasRemovedPhotoItems(currentItems: SideItem[], nextItems: SideItem[]) {
-  const nextPhotoIds = new Set(nextItems.filter(isPhotoItem).map((item) => item.id));
-  return currentItems.some((item) => isPhotoItem(item) && !nextPhotoIds.has(item.id));
-}
-
-function replaceRemovedPhotoItems(
-  currentItems: SideItem[],
-  nextItems: SideItem[],
-  side: "left" | "right",
-): SideItem[] {
-  const nextPhotoIds = new Set(nextItems.filter(isPhotoItem).map((item) => item.id));
-
-  return currentItems.map((item, index) => {
-    if (!isPhotoItem(item) || nextPhotoIds.has(item.id)) return item;
-
-    return {
-      type: "placeholder",
-      id: `removed-placeholder-${side}-${item.id}`,
-      className: placeholderStyles[(index + (side === "left" ? 0 : 2)) % placeholderStyles.length],
-    };
-  });
 }
 
 function isPhotoItem(item: SideItem): item is Extract<SideItem, { type: "photo" }> {
