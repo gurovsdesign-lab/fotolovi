@@ -105,13 +105,18 @@ img {
   animation: live-main-photo 900ms ease-out both;
 }
 
+.live-title {
+  max-width: min(76rem, calc(100vw - 30rem));
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+
 .live-side-column-mask {
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    transparent 126px,
-    rgba(0, 0, 0, 0.58) 146px,
-    #000 170px,
+    rgba(0, 0, 0, 0.42) 18px,
+    #000 42px,
     #000 calc(100% - 42px),
     rgba(0, 0, 0, 0.42) calc(100% - 18px),
     transparent 100%
@@ -119,18 +124,51 @@ img {
   mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    transparent 126px,
-    rgba(0, 0, 0, 0.58) 146px,
-    #000 170px,
+    rgba(0, 0, 0, 0.42) 18px,
+    #000 42px,
     #000 calc(100% - 42px),
     rgba(0, 0, 0, 0.42) calc(100% - 18px),
     transparent 100%
   );
+  -webkit-mask-mode: alpha;
+  mask-mode: alpha;
+  isolation: isolate;
 }
 
 .live-ambient-glow {
+  top: -18%;
+  right: -18%;
+  bottom: -18%;
+  left: -18%;
+  width: 136%;
+  height: 136%;
   animation: live-glow-drift 16s ease-in-out infinite;
-  transform-origin: 12% 12%;
+  opacity: 0.98;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.live-photo-card {
+  background: transparent;
+}
+
+.live-side-photo-card {
+  box-shadow: 0 18px 70px rgba(0, 0, 0, 0.34);
+}
+
+.live-main-photo-card {
+  box-shadow: 0 24px 90px rgba(0, 0, 0, 0.52);
+}
+
+.live-photo-border {
+  z-index: 2;
+  overflow: visible;
+}
+
+.live-photo-border rect {
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 1;
+  filter: drop-shadow(0 0 9px rgba(255, 255, 255, 0.035));
 }
 
 .live-main-glow::after {
@@ -152,4 +190,10 @@ img {
   background: radial-gradient(circle at 50% 50%, rgba(214, 179, 106, 0.17), transparent 40rem);
   animation: live-glow-drift 18s ease-in-out infinite;
   transform-origin: center;
+}
+
+@media (max-width: 900px) {
+  .live-title {
+    max-width: 92vw;
+  }
 }

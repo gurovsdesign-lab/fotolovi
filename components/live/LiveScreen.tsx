@@ -89,23 +89,36 @@ export function LiveScreen({
   }
 
   return (
-    <div className="relative h-screen overflow-hidden bg-night text-white">
-      <div className="live-ambient-glow absolute inset-0 bg-[radial-gradient(circle_at_12%_12%,rgba(214,179,106,0.18),transparent_34rem)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,18,18,0.92),rgba(18,18,18,0.48)_24%,rgba(18,18,18,0.7)_100%)]" />
+    <div className="relative isolate h-screen overflow-hidden bg-night text-white">
+      <svg
+        aria-hidden="true"
+        className="live-ambient-glow pointer-events-none absolute z-0"
+        viewBox="0 0 1200 760"
+        preserveAspectRatio="none"
+      >
+        <filter id="live-ambient-blur" x="-35%" y="-35%" width="170%" height="170%">
+          <feGaussianBlur stdDeviation="86" />
+        </filter>
+        <g filter="url(#live-ambient-blur)">
+          <ellipse cx="330" cy="338" rx="410" ry="250" fill="#D6B36A" opacity="0.14" />
+          <ellipse cx="640" cy="542" rx="440" ry="150" fill="#D6B36A" opacity="0.055" />
+          <ellipse cx="980" cy="610" rx="340" ry="170" fill="#D6B36A" opacity="0.035" />
+        </g>
+      </svg>
+
+      <SideColumn items={leftColumnItems} direction="down" position="left" />
+      <SideColumn items={rightColumnItems} direction="up" position="right" />
 
       <header className="relative z-20 px-5 pb-1 pt-7 text-center sm:px-8 lg:px-12">
-        <h1 className="mx-auto max-w-[92vw] truncate py-2 font-display text-[clamp(2.4rem,5.2vw,4rem)] leading-[1.12] text-white">
+        <h1 className="live-title mx-auto py-2 font-display text-[clamp(2.4rem,5.2vw,4rem)] leading-[1.12] text-white">
           {event.title}
         </h1>
       </header>
 
       <main className="relative z-10 h-[calc(100vh-5.8rem)] overflow-hidden px-4 pb-16 sm:px-8 lg:px-12">
-        <SideColumn items={leftColumnItems} direction="down" position="left" />
-        <SideColumn items={rightColumnItems} direction="up" position="right" />
-
         <section className="relative z-10 grid h-full place-items-center">
           <div className="live-main-glow relative isolate">
-            <figure className="relative z-10 aspect-[4/5] w-[min(74vw,28rem)] max-h-[calc(100vh-13rem)] overflow-hidden rounded-lg border border-white/10 bg-white/5 shadow-[0_24px_90px_rgba(0,0,0,0.52)] sm:h-[min(66vh,46rem)] sm:w-auto">
+            <figure className="live-photo-card live-main-photo-card relative z-10 aspect-[4/5] w-[min(74vw,28rem)] max-h-[calc(100vh-13rem)] overflow-hidden rounded-lg sm:h-[min(66vh,46rem)] sm:w-auto">
               <Image
                 key={centerPhoto.id}
                 src={centerPhoto.public_url}
@@ -115,7 +128,7 @@ export function LiveScreen({
                 className="animate-live-main-photo object-cover"
                 sizes="(max-width: 640px) 72vw, (max-width: 1024px) 46vw, 36vw"
               />
-              <div className="absolute inset-0 ring-1 ring-inset ring-white/10" />
+              <PhotoBorder />
             </figure>
           </div>
         </section>
@@ -133,7 +146,7 @@ export function LiveScreen({
       </div>
 
       <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end bg-gradient-to-t from-night via-night/80 to-transparent px-5 pb-7 pt-24 sm:px-8 lg:px-12">
-        <p className="text-lg font-medium text-white/80">{visiblePhotos.length} фото в эфире</p>
+        <p className="text-lg font-medium text-white/80">{visiblePhotos.length} фото загружено</p>
       </footer>
     </div>
   );
@@ -159,7 +172,7 @@ function SideColumn({
   return (
     <aside
       aria-hidden="true"
-      className={`live-side-column-mask pointer-events-none absolute bottom-8 top-7 z-0 w-[clamp(4.6rem,14vw,14rem)] overflow-hidden bg-transparent sm:top-10 ${positionClass}`}
+      className={`live-side-column-mask pointer-events-none absolute bottom-8 top-0 z-0 w-[clamp(4.6rem,14vw,14rem)] overflow-hidden bg-transparent ${positionClass}`}
     >
       <div className={`flex flex-col gap-4 bg-transparent will-change-transform sm:gap-5 ${animationClass}`}>
         {repeatedItems.map((item, index) => (
@@ -187,7 +200,7 @@ function SideTile({ item, index }: { item: SideItem; index: number }) {
   return (
     <figure
       data-live-side-item="photo"
-      className={`relative shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/5 shadow-[0_18px_70px_rgba(0,0,0,0.34)] ${aspectClass}`}
+      className={`live-photo-card live-side-photo-card relative shrink-0 overflow-hidden rounded-lg bg-transparent ${aspectClass}`}
     >
       <Image
         src={item.publicUrl}
@@ -196,8 +209,29 @@ function SideTile({ item, index }: { item: SideItem; index: number }) {
         className="object-cover"
         sizes="(max-width: 640px) 18vw, (max-width: 1024px) 16vw, 14vw"
       />
-      <div className="absolute inset-0 ring-1 ring-inset ring-white/10" />
+      <PhotoBorder />
     </figure>
+  );
+}
+
+function PhotoBorder() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="live-photo-border pointer-events-none absolute inset-0 h-full w-full"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+    >
+      <rect
+        x="0.5"
+        y="0.5"
+        width="99"
+        height="99"
+        rx="2.75"
+        fill="none"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
   );
 }
 
