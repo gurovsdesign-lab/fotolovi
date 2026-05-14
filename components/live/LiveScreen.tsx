@@ -10,7 +10,7 @@ import { LiveEmptyState } from "./LiveEmptyState";
 const CENTER_PHOTO_INTERVAL_MS = 4500;
 const CENTER_PHOTO_TRANSITION_MS = 900;
 const SIDE_SEQUENCE_LENGTH = 7;
-const SIDE_REAL_ONLY_PHOTO_COUNT = 8;
+const SIDE_REAL_ONLY_PHOTO_COUNT = 6;
 
 type SideItem =
   | {
@@ -58,12 +58,15 @@ export function LiveScreen({
 
   useEffect(() => {
     const fetchPhotos = async () => {
-      const response = await fetch(`/api/events/${event.slug}/photos`, { cache: "no-store" });
+      const response = await fetch(`/api/events/${event.slug}/photos?t=${Date.now()}`, {
+        cache: "no-store",
+      });
       if (!response.ok) return;
       const payload = (await response.json()) as { photos: LiveScreenPhoto[] };
       setPhotos(payload.photos);
     };
 
+    void fetchPhotos();
     const refresh = window.setInterval(fetchPhotos, LIVE_REFRESH_MS);
     return () => window.clearInterval(refresh);
   }, [event.slug]);
@@ -74,6 +77,10 @@ export function LiveScreen({
     : null;
   const leftColumnItems = useMemo(() => createSideItems(visiblePhotos, "left"), [visiblePhotos]);
   const rightColumnItems = useMemo(() => createSideItems(visiblePhotos, "right"), [visiblePhotos]);
+  const visiblePhotoIds = useMemo(
+    () => new Set(visiblePhotos.map((photo) => photo.id)),
+    [visiblePhotos],
+  );
 
   useEffect(() => {
     if (visiblePhotos.length <= 1) {
@@ -108,6 +115,12 @@ export function LiveScreen({
     setIncomingCenterPhoto(centerPhoto);
     setIsIncomingCenterPhotoReady(false);
   }, [centerPhoto, displayedCenterPhoto, incomingCenterPhoto?.id]);
+
+  useEffect(() => {
+    if (!incomingCenterPhoto || visiblePhotoIds.has(incomingCenterPhoto.id)) return;
+    setIncomingCenterPhoto(null);
+    setIsIncomingCenterPhotoReady(false);
+  }, [incomingCenterPhoto, visiblePhotoIds]);
 
   useEffect(() => {
     if (!incomingCenterPhoto || !isIncomingCenterPhotoReady) return;
@@ -229,8 +242,15 @@ function SideColumn({
 
   useEffect(() => {
     if (itemsSignature === displayItemsSignature) return;
+
+    if (hasRemovedPhotoItems(displayItems, items)) {
+      setDisplayItems(replaceRemovedPhotoItems(displayItems, items, position));
+      setPendingItems(items);
+      return;
+    }
+
     setPendingItems(items);
-  }, [displayItemsSignature, items, itemsSignature]);
+  }, [displayItems, displayItemsSignature, items, itemsSignature, position]);
 
   const handleAnimationIteration = () => {
     if (!pendingItems) return;
@@ -360,4 +380,31 @@ function createSideItems(photos: LiveScreenPhoto[], side: "left" | "right"): Sid
 
 function createSideItemsSignature(items: SideItem[]) {
   return items.map((item) => item.id).join("|");
+}
+
+function hasRemovedPhotoItems(currentItems: SideItem[], nextItems: SideItem[]) {
+  const nextPhotoIds = new Set(nextItems.filter(isPhotoItem).map((item) => item.id));
+  return currentItems.some((item) => isPhotoItem(item) && !nextPhotoIds.has(item.id));
+}
+
+function replaceRemovedPhotoItems(
+  currentItems: SideItem[],
+  nextItems: SideItem[],
+  side: "left" | "right",
+): SideItem[] {
+  const nextPhotoIds = new Set(nextItems.filter(isPhotoItem).map((item) => item.id));
+
+  return currentItems.map((item, index) => {
+    if (!isPhotoItem(item) || nextPhotoIds.has(item.id)) return item;
+
+    return {
+      type: "placeholder",
+      id: `removed-placeholder-${side}-${item.id}`,
+      className: placeholderStyles[(index + (side === "left" ? 0 : 2)) % placeholderStyles.length],
+    };
+  });
+}
+
+function isPhotoItem(item: SideItem): item is Extract<SideItem, { type: "photo" }> {
+  return item.type === "photo";
 }

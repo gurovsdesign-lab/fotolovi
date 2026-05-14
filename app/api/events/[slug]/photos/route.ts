@@ -25,18 +25,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
       slug,
       message: error.message,
     });
-    return NextResponse.json({ photos: [] });
+    return createNoStorePhotosResponse([]);
   }
 
   const liveEvent = event as { id: string } | null;
 
   if (!liveEvent) {
-    return NextResponse.json({ photos: [] }, { status: 404 });
+    return createNoStorePhotosResponse([], 404);
   }
 
   const photos = await getLiveScreenPhotos(liveEvent.id);
 
-  return NextResponse.json({ photos });
+  return createNoStorePhotosResponse(photos);
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ slug: string }> }) {
@@ -139,4 +139,20 @@ function createUploadId() {
   return typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function createNoStorePhotosResponse(
+  photos: Awaited<ReturnType<typeof getLiveScreenPhotos>>,
+  status = 200,
+) {
+  return NextResponse.json(
+    { photos },
+    {
+      status,
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        Pragma: "no-cache",
+      },
+    },
+  );
 }
