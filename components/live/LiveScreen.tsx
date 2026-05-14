@@ -11,6 +11,7 @@ import { LiveEmptyState } from "./LiveEmptyState";
 const CENTER_PHOTO_INTERVAL_MS = 4500;
 const CENTER_PHOTO_TRANSITION_MS = 900;
 const SNAKE_VISIBLE_SLOT_COUNT = 8;
+const SNAKE_MIN_QUEUE_LENGTH = 12;
 const SIDE_VISIBLE_SLOT_COUNT = 4;
 const SNAKE_STEP_MS = 5200;
 
@@ -234,12 +235,14 @@ export function LiveScreen({
 }
 
 function SnakeSideColumns({ photos }: { photos: LiveScreenPhoto[] }) {
+  const latestPhotosRef = useRef(photos);
   const [{ queue, headIndex }, dispatchSnakeAction] = useReducer(
     snakeReducer,
     photos,
     createInitialSnakeState,
   );
   const [isMoving, setIsMoving] = useState(false);
+  const photosSignature = useMemo(() => createPhotosSignature(photos), [photos]);
   const queueSignature = useMemo(() => createSideItemsSignature(queue), [queue]);
   const leftColumnItems = useMemo(
     () => createSideColumnTrackItems(queue, headIndex, "left"),
@@ -251,9 +254,13 @@ function SnakeSideColumns({ photos }: { photos: LiveScreenPhoto[] }) {
   );
 
   useEffect(() => {
-    dispatchSnakeAction({ type: "sync", photos });
-    setIsMoving(false);
+    latestPhotosRef.current = photos;
   }, [photos]);
+
+  useEffect(() => {
+    dispatchSnakeAction({ type: "sync", photos: latestPhotosRef.current });
+    setIsMoving(false);
+  }, [photosSignature]);
 
   useEffect(() => {
     if (!queue.length || isMoving) return;
@@ -447,7 +454,7 @@ function reconcileSnakeQueue(
     appendedPhotoItems,
     insertAppendedBeforeItemId,
   );
-  const placeholderCount = Math.max(0, SNAKE_VISIBLE_SLOT_COUNT - photoItems.length);
+  const placeholderCount = Math.max(0, SNAKE_MIN_QUEUE_LENGTH - photoItems.length);
   const placeholderItems = Array.from({ length: placeholderCount }, (_, index) =>
     createPlaceholderSideItem(index, photoItems.length + index),
   );
@@ -539,6 +546,10 @@ function normalizeSnakeIndex(index: number, length: number) {
 
 function createSideItemsSignature(items: SideItem[]) {
   return items.map((item) => item.id).join("|");
+}
+
+function createPhotosSignature(photos: LiveScreenPhoto[]) {
+  return photos.map((photo) => `${photo.id}:${photo.public_url}`).join("|");
 }
 
 function isPhotoItem(item: SideItem): item is Extract<SideItem, { type: "photo" }> {
