@@ -13,9 +13,6 @@ const CENTER_PHOTO_TRANSITION_MS = 900;
 const SNAKE_MIN_QUEUE_LENGTH = 16;
 const SNAKE_STEP_MS = 5200;
 const SNAKE_OFFSCREEN_INSERT_INDEX = 8;
-const SNAKE_PLACEHOLDER_REPLACEMENT_ORDER = [
-  8, 7, 6, 5, 4, 3, 2, 1, 9, 10, 11, 12, 13, 14, 15, 0,
-];
 
 type SideItem =
   | {
@@ -412,17 +409,11 @@ function reconcileSnakeQueue(currentQueue: SideItem[], photos: LiveScreenPhoto[]
   const nextQueue: SideItem[] = [];
   const retainedPhotoIds = new Set<string>();
 
-  currentQueue.forEach((item, index) => {
-    if (!isPhotoItem(item)) {
-      nextQueue.push(item);
-      return;
-    }
+  currentQueue.forEach((item) => {
+    if (!isPhotoItem(item)) return;
 
     const photo = photosById.get(item.photoId);
-    if (!photo || retainedPhotoIds.has(photo.id)) {
-      nextQueue.push(createPlaceholderSideItem(index, index));
-      return;
-    }
+    if (!photo || retainedPhotoIds.has(photo.id)) return;
 
     retainedPhotoIds.add(photo.id);
     nextQueue.push({
@@ -436,24 +427,19 @@ function reconcileSnakeQueue(currentQueue: SideItem[], photos: LiveScreenPhoto[]
     .map((photo, index) => createPhotoSideItem(photo, nextQueue.length + index));
 
   appendedPhotoItems.forEach((photoItem) => {
-    const placeholderIndex = SNAKE_PLACEHOLDER_REPLACEMENT_ORDER.find(
-      (index) => nextQueue[index]?.type === "placeholder",
-    );
-
-    if (placeholderIndex !== undefined) {
-      nextQueue[placeholderIndex] = photoItem;
-      return;
-    }
-
     nextQueue.splice(Math.min(SNAKE_OFFSCREEN_INSERT_INDEX, nextQueue.length), 0, photoItem);
   });
 
-  while (nextQueue.length < SNAKE_MIN_QUEUE_LENGTH) {
+  while (nextQueue.length < createTargetSnakeQueueLength(photos.length)) {
     const index = nextQueue.length;
     nextQueue.push(createPlaceholderSideItem(index, index));
   }
 
   return nextQueue;
+}
+
+function createTargetSnakeQueueLength(photoCount: number) {
+  return Math.max(photoCount, SNAKE_MIN_QUEUE_LENGTH);
 }
 
 function createPhotoSideItem(photo: LiveScreenPhoto, index: number): SideItem {

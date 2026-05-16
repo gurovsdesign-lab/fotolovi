@@ -19,6 +19,7 @@ type EventId = Database["public"]["Tables"]["events"]["Row"]["id"];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_UPLOAD_IMAGE_EDGE = 1920;
 const UPLOAD_JPEG_QUALITY = 0.82;
+const MAX_FILES_PER_UPLOAD = 10;
 
 export function PhotoUploader({
   eventId,
@@ -37,20 +38,29 @@ export function PhotoUploader({
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  async function handleFileChange(file?: File) {
-    if (!file) {
+  async function handleFileChange(fileList?: FileList | File[]) {
+    const files = Array.from(fileList ?? []);
+
+    if (!files.length) {
       setStatus("error");
       setMessage("Выберите фото для загрузки");
       return;
     }
 
-    if (file.type && !file.type.startsWith("image/")) {
+    if (files.length > MAX_FILES_PER_UPLOAD) {
+      setStatus("error");
+      setMessage(`Можно загрузить не больше ${MAX_FILES_PER_UPLOAD} фото за один раз`);
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+
+    if (files.some((file) => file.type && !file.type.startsWith("image/"))) {
       setStatus("error");
       setMessage("Можно загружать только изображения");
       return;
     }
 
-    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+    if (files.some((file) => file.size > MAX_UPLOAD_SIZE_BYTES)) {
       setStatus("error");
       setMessage(`Файл слишком большой. Максимум ${MAX_UPLOAD_SIZE_MB} МБ`);
       return;
@@ -68,43 +78,61 @@ export function PhotoUploader({
       return;
     }
 
-    setStatus("uploading");
-    setMessage("Готовим фото...");
-
-    const uploadFile = await prepareImageForUpload(file);
-    console.log("PHOTO UPLOAD BEFORE", {
-      bucket: PHOTO_BUCKET,
-      eventId,
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size,
-      uploadType: uploadFile.type,
-      uploadSize: uploadFile.size,
-    });
-
-    setMessage("Загружаем фото...");
-
-    const formData = new FormData();
-    formData.append("file", uploadFile);
-
-    const response = await fetch(`/api/events/${eventSlug}/photos`, {
-      method: "POST",
-      body: formData,
-    });
-
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-
-    if (!response.ok) {
-      console.log("UPLOAD API ERROR STATUS:", response.status);
-      console.log("UPLOAD API ERROR PAYLOAD:", payload);
+    if (currentCount + files.length > photoLimit) {
       setStatus("error");
-      setMessage(payload?.error || "Не удалось загрузить фото. Попробуйте ещё раз");
+      setMessage(`Можно добавить ещё ${Math.max(0, photoLimit - currentCount)} фото`);
+      if (inputRef.current) inputRef.current.value = "";
       return;
+    }
+
+    setStatus("uploading");
+    setMessage(files.length === 1 ? "Готовим фото..." : `Готовим фото 1 из ${files.length}...`);
+
+    for (const [index, file] of files.entries()) {
+      const uploadFile = await prepareImageForUpload(file);
+      console.log("PHOTO UPLOAD BEFORE", {
+        bucket: PHOTO_BUCKET,
+        eventId,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        uploadType: uploadFile.type,
+        uploadSize: uploadFile.size,
+      });
+
+      setMessage(
+        files.length === 1
+          ? "Загружаем фото..."
+          : `Загружаем фото ${index + 1} из ${files.length}...`,
+      );
+
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+
+      const response = await fetch(`/api/events/${eventSlug}/photos`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+      if (!response.ok) {
+        console.log("UPLOAD API ERROR STATUS:", response.status);
+        console.log("UPLOAD API ERROR PAYLOAD:", payload);
+        setStatus("error");
+        setMessage(payload?.error || "Не удалось загрузить фото. Попробуйте ещё раз");
+        startTransition(() => router.refresh());
+        return;
+      }
     }
 
     if (inputRef.current) inputRef.current.value = "";
     setStatus("success");
-    setMessage("Спасибо! Ваш снимок добавлен в альбом");
+    setMessage(
+      files.length === 1
+        ? "Спасибо! Ваш снимок добавлен в альбом"
+        : `Спасибо! ${files.length} фото добавлены в альбом`,
+    );
     startTransition(() => router.refresh());
   }
 
@@ -123,8 +151,9 @@ export function PhotoUploader({
           ref={inputRef}
           type="file"
           accept="image/*"
+          multiple
           className="sr-only"
-          onChange={(event) => handleFileChange(event.target.files?.[0])}
+          onChange={(event) => handleFileChange(event.target.files ?? undefined)}
         />
         <Button type="button" onClick={() => inputRef.current?.click()} disabled={disabled} className="h-14 text-base">
           {disabled ? <Loader /> : <Camera className="size-5" />}
