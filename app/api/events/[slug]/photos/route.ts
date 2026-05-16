@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getLiveScreenPhotos } from "@/features/live/queries";
 import {
   MAX_FILES_PER_UPLOAD,
+  MAX_UPLOAD_REQUEST_FILE_BYTES,
   MAX_UPLOAD_SIZE_BYTES,
   PHOTO_BUCKET,
 } from "@/lib/constants";
@@ -62,6 +63,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
 
   if (files.some((file) => file.size > MAX_UPLOAD_SIZE_BYTES)) {
     return NextResponse.json({ error: "Файл слишком большой" }, { status: 400 });
+  }
+
+  if (files.some((file) => file.size > MAX_UPLOAD_REQUEST_FILE_BYTES)) {
+    return NextResponse.json({ error: "Файл слишком большой для запроса" }, { status: 400 });
   }
 
   const supabase = createPublicSupabaseClient();

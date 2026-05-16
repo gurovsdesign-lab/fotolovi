@@ -5,6 +5,7 @@ import { Camera, UploadCloud } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   MAX_FILES_PER_UPLOAD,
+  MAX_UPLOAD_REQUEST_FILE_BYTES,
   MAX_UPLOAD_SIZE_BYTES,
   MAX_UPLOAD_SIZE_MB,
   PHOTO_BUCKET,
@@ -19,6 +20,13 @@ type EventId = Database["public"]["Tables"]["events"]["Row"]["id"];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_UPLOAD_IMAGE_EDGE = 1920;
 const UPLOAD_JPEG_QUALITY = 0.82;
+const uploadEncodeAttempts = [
+  { maxEdge: MAX_UPLOAD_IMAGE_EDGE, quality: UPLOAD_JPEG_QUALITY },
+  { maxEdge: 1600, quality: 0.78 },
+  { maxEdge: 1400, quality: 0.74 },
+  { maxEdge: 1200, quality: 0.7 },
+  { maxEdge: 960, quality: 0.68 },
+];
 
 export function PhotoUploader({
   eventId,
@@ -87,7 +95,7 @@ export function PhotoUploader({
     setStatus("uploading");
     setMessage(files.length === 1 ? "Готовим фото..." : `Готовим фото 1 из ${files.length}...`);
 
-    const formData = new FormData();
+    const uploadFiles: File[] = [];
 
     for (const [index, file] of files.entries()) {
       setMessage(
@@ -107,29 +115,52 @@ export function PhotoUploader({
         uploadSize: uploadFile.size,
       });
 
-      formData.append("files", uploadFile);
+      uploadFiles.push(uploadFile);
     }
 
-    setMessage(
-      files.length === 1
-        ? "Загружаем фото..."
-        : `Загружаем ${files.length} фото...`,
+    const oversizedUploadFile = uploadFiles.find(
+      (uploadFile) => uploadFile.size > MAX_UPLOAD_REQUEST_FILE_BYTES,
     );
 
-    const response = await fetch(`/api/events/${eventSlug}/photos`, {
-      method: "POST",
-      body: formData,
+    if (oversizedUploadFile) {
+      setStatus("error");
+      setMessage("Одно из фото слишком большое для загрузки. Попробуйте выбрать фото меньшего размера");
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+
+    console.log("PHOTO UPLOAD BATCH", {
+      count: files.length,
+      originalSize: files.reduce((total, file) => total + file.size, 0),
+      uploadSize: uploadFiles.reduce((total, file) => total + file.size, 0),
+      requestMode: "per-file",
     });
 
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    for (const [index, uploadFile] of uploadFiles.entries()) {
+      setMessage(
+        uploadFiles.length === 1
+          ? "Загружаем фото..."
+          : `Загружаем фото ${index + 1} из ${uploadFiles.length}...`,
+      );
 
-    if (!response.ok) {
-      console.log("UPLOAD API ERROR STATUS:", response.status);
-      console.log("UPLOAD API ERROR PAYLOAD:", payload);
-      setStatus("error");
-      setMessage(payload?.error || "Не удалось загрузить фото. Попробуйте ещё раз");
-      startTransition(() => router.refresh());
-      return;
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+
+      const response = await fetch(`/api/events/${eventSlug}/photos`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+      if (!response.ok) {
+        console.log("UPLOAD API ERROR STATUS:", response.status);
+        console.log("UPLOAD API ERROR PAYLOAD:", payload);
+        setStatus("error");
+        setMessage(payload?.error || "Не удалось загрузить фото. Попробуйте ещё раз");
+        startTransition(() => router.refresh());
+        return;
+      }
     }
 
     if (inputRef.current) inputRef.current.value = "";
@@ -183,7 +214,7 @@ export function PhotoUploader({
         </div>
         <p className="flex items-center gap-2 text-xs text-muted">
           <UploadCloud className="size-4" />
-          До {MAX_UPLOAD_SIZE_MB} МБ, JPG/PNG/WEBP/HEIC.
+          До {MAX_UPLOAD_SIZE_MB} МБ, JPG/PNG/WEBP/HEIC. Не более {MAX_FILES_PER_UPLOAD} фото за один раз.
         </p>
         {message ? (
           <p className={status === "error" ? "text-sm text-red-600" : "text-sm text-green-700"}>
@@ -201,34 +232,98 @@ async function prepareImageForUpload(file: File) {
   if (file.type === "image/gif" || file.type === "image/svg+xml") return file;
 
   try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_UPLOAD_IMAGE_EDGE / Math.max(bitmap.width, bitmap.height));
-    const width = Math.max(1, Math.round(bitmap.width * scale));
-    const height = Math.max(1, Math.round(bitmap.height * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
+    const imageSource = await createImageSource(file);
+    let smallestBlob: Blob | null = null;
 
-    const context = canvas.getContext("2d");
-    if (!context) return file;
+    for (const attempt of uploadEncodeAttempts) {
+      const scale = Math.min(1, attempt.maxEdge / Math.max(imageSource.width, imageSource.height));
+      const width = Math.max(1, Math.round(imageSource.width * scale));
+      const height = Math.max(1, Math.round(imageSource.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
 
-    context.drawImage(bitmap, 0, 0, width, height);
-    bitmap.close();
+      const context = canvas.getContext("2d");
+      if (!context) continue;
 
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, "image/jpeg", UPLOAD_JPEG_QUALITY);
-    });
+      imageSource.draw(context, width, height);
 
-    if (!blob || blob.size >= file.size) return file;
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, "image/jpeg", attempt.quality);
+      });
 
-    return new File([blob], replaceFileExtension(file.name, "jpg"), {
-      type: "image/jpeg",
-      lastModified: Date.now(),
-    });
+      if (!blob) continue;
+      if (!smallestBlob || blob.size < smallestBlob.size) smallestBlob = blob;
+      if (blob.size <= MAX_UPLOAD_REQUEST_FILE_BYTES) {
+        imageSource.close();
+        return createPreparedImageFile(file.name, blob);
+      }
+    }
+
+    imageSource.close();
+
+    if (file.size <= MAX_UPLOAD_REQUEST_FILE_BYTES && (!smallestBlob || file.size <= smallestBlob.size)) {
+      return file;
+    }
+
+    if (smallestBlob) return createPreparedImageFile(file.name, smallestBlob);
+
+    return file;
   } catch (error) {
     console.log("IMAGE PREPARE FALLBACK:", error);
     return file;
   }
+}
+
+async function createImageSource(file: File) {
+  try {
+    const bitmap = await createImageBitmap(file);
+    return {
+      width: bitmap.width,
+      height: bitmap.height,
+      draw(context: CanvasRenderingContext2D, width: number, height: number) {
+        context.drawImage(bitmap, 0, 0, width, height);
+      },
+      close() {
+        bitmap.close();
+      },
+    };
+  } catch (error) {
+    console.log("CREATE IMAGE BITMAP FALLBACK:", error);
+  }
+
+  const image = await loadImageElement(file);
+  return {
+    width: image.naturalWidth || image.width,
+    height: image.naturalHeight || image.height,
+    draw(context: CanvasRenderingContext2D, width: number, height: number) {
+      context.drawImage(image, 0, 0, width, height);
+    },
+    close() {
+      URL.revokeObjectURL(image.src);
+    },
+  };
+}
+
+async function loadImageElement(file: File) {
+  const url = URL.createObjectURL(file);
+  const image = new Image();
+  image.src = url;
+
+  try {
+    await image.decode();
+    return image;
+  } catch (error) {
+    URL.revokeObjectURL(url);
+    throw error;
+  }
+}
+
+function createPreparedImageFile(name: string, blob: Blob) {
+  return new File([blob], replaceFileExtension(name, "jpg"), {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
 }
 
 function replaceFileExtension(name: string, extension: string) {
