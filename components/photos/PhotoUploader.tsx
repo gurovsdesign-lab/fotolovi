@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Camera, UploadCloud } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
@@ -32,7 +32,6 @@ export function PhotoUploader({
   currentCount: number;
 }) {
   const router = useRouter();
-  const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [message, setMessage] = useState("");
@@ -154,30 +153,34 @@ export function PhotoUploader({
             Ваши снимки появятся в галерее и на экране мероприятия.
           </p>
         </div>
-        <input
-          id={inputId}
-          ref={inputRef}
-          type="file"
-          name="photos"
-          accept="image/*"
-          multiple
-          disabled={disabled}
-          className="sr-only"
-          onChange={(event) => handleFileChange(event.target.files ?? undefined)}
-        />
-        <label
-          htmlFor={disabled ? undefined : inputId}
-          aria-disabled={disabled}
-          className={cn(
-            "inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-action px-5 text-base font-medium text-white shadow-soft transition",
-            disabled
-              ? "cursor-not-allowed opacity-55"
-              : "cursor-pointer hover:bg-[#3859dd]",
-          )}
-        >
-          {disabled ? <Loader /> : <Camera className="size-5" />}
-          {disabled ? "Загружаем..." : "Выбрать фото"}
-        </label>
+        <div className="relative h-14">
+          <input
+            ref={inputRef}
+            type="file"
+            name="photos"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+            multiple
+            disabled={disabled}
+            aria-label="Выбрать фото"
+            className={cn(
+              "absolute inset-0 z-10 h-full w-full opacity-0",
+              disabled ? "cursor-not-allowed" : "cursor-pointer",
+            )}
+            onChange={(event) => handleFileChange(event.target.files ?? undefined)}
+          />
+          <div
+            aria-hidden="true"
+            className={cn(
+              "inline-flex h-full w-full items-center justify-center gap-2 rounded-xl bg-action px-5 text-base font-medium text-white shadow-soft transition",
+              disabled
+                ? "cursor-not-allowed opacity-55"
+                : "cursor-pointer hover:bg-[#3859dd]",
+            )}
+          >
+            {disabled ? <Loader /> : <Camera className="size-5" />}
+            {disabled ? "Загружаем..." : "Выбрать фото"}
+          </div>
+        </div>
         <p className="flex items-center gap-2 text-xs text-muted">
           <UploadCloud className="size-4" />
           До {MAX_UPLOAD_SIZE_MB} МБ, JPG/PNG/WEBP/HEIC.
