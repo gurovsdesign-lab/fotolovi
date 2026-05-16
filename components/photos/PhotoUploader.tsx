@@ -1,15 +1,15 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition } from "react";
 import { Camera, UploadCloud } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
+  MAX_FILES_PER_UPLOAD,
   MAX_UPLOAD_SIZE_BYTES,
   MAX_UPLOAD_SIZE_MB,
   PHOTO_BUCKET,
 } from "@/lib/constants";
-import { getFileExtension } from "@/lib/utils";
-import { Button } from "@/components/ui/Button";
+import { cn, getFileExtension } from "@/lib/utils";
 import { Loader } from "@/components/ui/Loader";
 import type { Database } from "@/types/database";
 
@@ -19,7 +19,6 @@ type EventId = Database["public"]["Tables"]["events"]["Row"]["id"];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_UPLOAD_IMAGE_EDGE = 1920;
 const UPLOAD_JPEG_QUALITY = 0.82;
-const MAX_FILES_PER_UPLOAD = 10;
 
 export function PhotoUploader({
   eventId,
@@ -33,6 +32,7 @@ export function PhotoUploader({
   currentCount: number;
 }) {
   const router = useRouter();
+  const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [message, setMessage] = useState("");
@@ -88,7 +88,15 @@ export function PhotoUploader({
     setStatus("uploading");
     setMessage(files.length === 1 ? "Готовим фото..." : `Готовим фото 1 из ${files.length}...`);
 
+    const formData = new FormData();
+
     for (const [index, file] of files.entries()) {
+      setMessage(
+        files.length === 1
+          ? "Готовим фото..."
+          : `Готовим фото ${index + 1} из ${files.length}...`,
+      );
+
       const uploadFile = await prepareImageForUpload(file);
       console.log("PHOTO UPLOAD BEFORE", {
         bucket: PHOTO_BUCKET,
@@ -100,30 +108,29 @@ export function PhotoUploader({
         uploadSize: uploadFile.size,
       });
 
-      setMessage(
-        files.length === 1
-          ? "Загружаем фото..."
-          : `Загружаем фото ${index + 1} из ${files.length}...`,
-      );
+      formData.append("files", uploadFile);
+    }
 
-      const formData = new FormData();
-      formData.append("file", uploadFile);
+    setMessage(
+      files.length === 1
+        ? "Загружаем фото..."
+        : `Загружаем ${files.length} фото...`,
+    );
 
-      const response = await fetch(`/api/events/${eventSlug}/photos`, {
-        method: "POST",
-        body: formData,
-      });
+    const response = await fetch(`/api/events/${eventSlug}/photos`, {
+      method: "POST",
+      body: formData,
+    });
 
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
 
-      if (!response.ok) {
-        console.log("UPLOAD API ERROR STATUS:", response.status);
-        console.log("UPLOAD API ERROR PAYLOAD:", payload);
-        setStatus("error");
-        setMessage(payload?.error || "Не удалось загрузить фото. Попробуйте ещё раз");
-        startTransition(() => router.refresh());
-        return;
-      }
+    if (!response.ok) {
+      console.log("UPLOAD API ERROR STATUS:", response.status);
+      console.log("UPLOAD API ERROR PAYLOAD:", payload);
+      setStatus("error");
+      setMessage(payload?.error || "Не удалось загрузить фото. Попробуйте ещё раз");
+      startTransition(() => router.refresh());
+      return;
     }
 
     if (inputRef.current) inputRef.current.value = "";
@@ -148,17 +155,29 @@ export function PhotoUploader({
           </p>
         </div>
         <input
+          id={inputId}
           ref={inputRef}
           type="file"
+          name="photos"
           accept="image/*"
           multiple
+          disabled={disabled}
           className="sr-only"
           onChange={(event) => handleFileChange(event.target.files ?? undefined)}
         />
-        <Button type="button" onClick={() => inputRef.current?.click()} disabled={disabled} className="h-14 text-base">
+        <label
+          htmlFor={disabled ? undefined : inputId}
+          aria-disabled={disabled}
+          className={cn(
+            "inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-action px-5 text-base font-medium text-white shadow-soft transition",
+            disabled
+              ? "cursor-not-allowed opacity-55"
+              : "cursor-pointer hover:bg-[#3859dd]",
+          )}
+        >
           {disabled ? <Loader /> : <Camera className="size-5" />}
           {disabled ? "Загружаем..." : "Выбрать фото"}
-        </Button>
+        </label>
         <p className="flex items-center gap-2 text-xs text-muted">
           <UploadCloud className="size-4" />
           До {MAX_UPLOAD_SIZE_MB} МБ, JPG/PNG/WEBP/HEIC.
