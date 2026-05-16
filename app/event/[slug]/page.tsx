@@ -57,7 +57,7 @@ export default async function GuestEventPage({ params }: { params: Promise<{ slu
             <h2 className="text-2xl font-semibold text-ink">Общая галерея</h2>
             <span className="text-sm text-muted">{photos.length} фото</span>
           </div>
-          <PhotoGrid photos={photos} eventId={event.id} />
+          <PhotoGrid photos={photos} eventId={event.id} eventTitle={event.title} />
         </section>
       </div>
     </main>

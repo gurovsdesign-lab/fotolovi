@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Download } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { ArrowLeft } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { QRBlock } from "@/components/events/QRBlock";
@@ -52,19 +51,12 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
                 <p className="mt-1 text-2xl font-semibold">{event.is_paid ? "Paid" : "Test"}</p>
               </div>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Button type="button" variant="secondary" disabled>
-                <Download className="size-4" />
-                Скачать все фото
-              </Button>
-              <DeleteEventButton eventId={event.id} eventTitle={event.title} isPaid={event.is_paid} />
-            </div>
-            <p className="text-xs text-muted">TODO: zip-скачивание фото будет добавлено после первых тестов.</p>
+            <DeleteEventButton eventId={event.id} eventTitle={event.title} isPaid={event.is_paid} />
           </Card>
           <QRBlock guestUrl={guestUrl} liveUrl={liveUrl} />
         </section>
 
-        <EventGallery photos={photos} eventId={event.id} />
+        <EventGallery photos={photos} eventId={event.id} eventTitle={event.title} />
       </div>
     </DashboardLayout>
   );

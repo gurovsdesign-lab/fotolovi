@@ -1,7 +1,7 @@
 import { PhotoGrid } from "@/components/photos/PhotoGrid";
 import type { Photo } from "@/types/photo";
 
-export function EventGallery({ photos, eventId }: { photos: Photo[]; eventId: string }) {
+export function EventGallery({ photos, eventId, eventTitle }: { photos: Photo[]; eventId: string; eventTitle: string }) {
   return (
     <section className="grid gap-4">
       <div className="flex items-end justify-between gap-4">
@@ -13,7 +13,7 @@ export function EventGallery({ photos, eventId }: { photos: Photo[]; eventId: st
           {photos.length} фото
         </span>
       </div>
-      <PhotoGrid photos={photos} eventId={eventId} canManage />
+      <PhotoGrid photos={photos} eventId={eventId} eventTitle={eventTitle} canManage />
     </section>
   );
 }
