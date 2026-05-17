@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import { createServiceRoleSupabaseClient } from "@/lib/supabaseService";
 import type {
   LiveScreenState,
@@ -55,7 +56,7 @@ type SelectTable<T> = {
 
 export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const supabase = createServiceRoleSupabaseClient();
+  const supabase = await createLiveStateSupabaseClient();
   const eventsTable = supabase.from("events") as unknown as SelectTable<EventIdentity>;
   const { data: event, error: eventError } = await eventsTable
     .select("id")
@@ -154,6 +155,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
       })),
     },
   });
+}
+
+async function createLiveStateSupabaseClient() {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (serviceRoleKey && !serviceRoleKey.startsWith("sb_publishable_")) {
+    return createServiceRoleSupabaseClient();
+  }
+
+  return createServerSupabaseClient({ persistCookies: false });
 }
 
 function createLiveStatePayload({

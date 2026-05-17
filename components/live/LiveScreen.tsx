@@ -115,16 +115,31 @@ export function LiveScreen({
 
   useEffect(() => {
     const fetchLiveState = async () => {
-      const response = await fetch(`/api/events/${event.slug}/live-state?t=${Date.now()}`, {
-        cache: "no-store",
-      });
-      if (!response.ok && response.status !== 404) return;
-      const payload = (await response.json()) as LiveStatePayload;
-      setLiveState(payload.participant && payload.mode === "spotlight" ? payload : {
-        mode: "live",
-        updatedAt: payload.updatedAt,
-        participant: null,
-      });
+      try {
+        const response = await fetch(`/api/events/${event.slug}/live-state?t=${Date.now()}`, {
+          cache: "no-store",
+        });
+
+        if (!response.ok && response.status !== 404) {
+          console.warn("Live state polling returned non-OK response", {
+            slug: event.slug,
+            status: response.status,
+          });
+          return;
+        }
+
+        const payload = (await response.json()) as LiveStatePayload;
+        setLiveState(payload.participant && payload.mode === "spotlight" ? payload : {
+          mode: "live",
+          updatedAt: payload.updatedAt,
+          participant: null,
+        });
+      } catch (error) {
+        console.warn("Live state polling failed", {
+          slug: event.slug,
+          message: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
     };
 
     void fetchLiveState();
