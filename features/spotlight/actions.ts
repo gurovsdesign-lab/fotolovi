@@ -26,6 +26,7 @@ type ParticipantValues = {
   title: string;
   subtitle: string | null;
   body: string | null;
+  updated_at?: string;
 };
 
 type ParticipantInsert = ParticipantValues & {
@@ -91,131 +92,152 @@ export async function createParticipantAction(
   eventId: string,
   fields: ParticipantFields,
 ): Promise<SpotlightActionResult> {
-  const supabase = await createServerSupabaseClient();
-  const event = await requireManageableEvent(supabase, eventId);
-  const values = validateParticipantFields(fields);
+  try {
+    const supabase = await createServerSupabaseClient();
+    const event = await requireManageableEvent(supabase, eventId);
+    const values = validateParticipantFields(fields);
 
-  if ("error" in values) return values;
+    if ("error" in values) return values;
 
-  const participantsTable = supabase.from("spotlight_participants") as unknown as InsertTable<ParticipantInsert>;
-  const { error } = await participantsTable.insert({
-    event_id: event.id,
-    display_name: values.displayName,
-    title: values.title,
-    subtitle: values.subtitle,
-    body: values.body,
-  });
-
-  if (error) {
-    console.error("Failed to create spotlight participant", {
-      eventId,
-      message: error.message,
+    const participantsTable = supabase.from("spotlight_participants") as unknown as InsertTable<ParticipantInsert>;
+    const { error } = await participantsTable.insert({
+      event_id: event.id,
+      display_name: values.displayName,
+      title: values.title,
+      subtitle: values.subtitle,
+      body: values.body,
     });
-    return { error: "Не удалось добавить участника" };
-  }
 
-  revalidateEventPaths(event);
-  return {};
+    if (error) {
+      console.error("Failed to create spotlight participant", {
+        eventId,
+        message: error.message,
+      });
+      return { error: "Не удалось добавить участника" };
+    }
+
+    revalidateEventPaths(event);
+    return {};
+  } catch (error) {
+    return createSafeActionError(error);
+  }
 }
 
 export async function updateParticipantAction(
   participantId: string,
   fields: ParticipantFields,
 ): Promise<SpotlightActionResult> {
-  const supabase = await createServerSupabaseClient();
-  const participant = await requireManageableParticipant(supabase, participantId);
-  const event = await requireManageableEvent(supabase, participant.event_id);
-  const values = validateParticipantFields(fields);
+  try {
+    const supabase = await createServerSupabaseClient();
+    const participant = await requireManageableParticipant(supabase, participantId);
+    const event = await requireManageableEvent(supabase, participant.event_id);
+    const values = validateParticipantFields(fields);
 
-  if ("error" in values) return values;
+    if ("error" in values) return values;
 
-  const participantsTable = supabase.from("spotlight_participants") as unknown as UpdateTable<ParticipantValues>;
-  const { error } = await participantsTable
-    .update({
-      display_name: values.displayName,
-      title: values.title,
-      subtitle: values.subtitle,
-      body: values.body,
-    })
-    .eq("id", participantId)
-    .eq("event_id", event.id);
+    const participantsTable = supabase.from("spotlight_participants") as unknown as UpdateTable<ParticipantValues>;
+    const { error } = await participantsTable
+      .update({
+        display_name: values.displayName,
+        title: values.title,
+        subtitle: values.subtitle,
+        body: values.body,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", participantId)
+      .eq("event_id", event.id);
 
-  if (error) {
-    console.error("Failed to update spotlight participant", {
-      participantId,
-      eventId: event.id,
-      message: error.message,
-    });
-    return { error: "Не удалось сохранить участника" };
+    if (error) {
+      console.error("Failed to update spotlight participant", {
+        participantId,
+        eventId: event.id,
+        message: error.message,
+      });
+      return { error: "Не удалось сохранить участника" };
+    }
+
+    revalidateEventPaths(event);
+    return {};
+  } catch (error) {
+    return createSafeActionError(error);
   }
-
-  revalidateEventPaths(event);
-  return {};
 }
 
 export async function deleteParticipantAction(participantId: string): Promise<SpotlightActionResult> {
-  const supabase = await createServerSupabaseClient();
-  const participant = await requireManageableParticipant(supabase, participantId);
-  const event = await requireManageableEvent(supabase, participant.event_id);
+  try {
+    const supabase = await createServerSupabaseClient();
+    const participant = await requireManageableParticipant(supabase, participantId);
+    const event = await requireManageableEvent(supabase, participant.event_id);
 
-  const liveStatesTable = supabase.from("live_screen_states") as unknown as SelectTable<LiveStateIdentity>;
-  const { data: liveState, error: liveStateError } = await liveStatesTable
-    .select("active_participant_id")
-    .eq("event_id", event.id)
-    .maybeSingle();
+    const liveStatesTable = supabase.from("live_screen_states") as unknown as SelectTable<LiveStateIdentity>;
+    const { data: liveState, error: liveStateError } = await liveStatesTable
+      .select("active_participant_id")
+      .eq("event_id", event.id)
+      .maybeSingle();
 
-  if (!liveStateError && liveState?.active_participant_id === participantId) {
-    const ended = await setLiveScreenMode(supabase, event.id, "live", null);
-    if (ended.error) return ended;
+    if (!liveStateError && liveState?.active_participant_id === participantId) {
+      const ended = await setLiveScreenMode(supabase, event.id, "live", null);
+      if (ended.error) return ended;
+    }
+
+    const participantsTable = supabase.from("spotlight_participants") as unknown as UpdateTable<ParticipantValues>;
+    const { error } = await participantsTable
+      .delete()
+      .eq("id", participantId)
+      .eq("event_id", event.id);
+
+    if (error) {
+      console.error("Failed to delete spotlight participant", {
+        participantId,
+        eventId: event.id,
+        message: error.message,
+      });
+      return { error: "Не удалось удалить участника" };
+    }
+
+    revalidateEventPaths(event);
+    return {};
+  } catch (error) {
+    return createSafeActionError(error);
   }
-
-  const participantsTable = supabase.from("spotlight_participants") as unknown as UpdateTable<ParticipantValues>;
-  const { error } = await participantsTable
-    .delete()
-    .eq("id", participantId)
-    .eq("event_id", event.id);
-
-  if (error) {
-    console.error("Failed to delete spotlight participant", {
-      participantId,
-      eventId: event.id,
-      message: error.message,
-    });
-    return { error: "Не удалось удалить участника" };
-  }
-
-  revalidateEventPaths(event);
-  return {};
 }
 
 export async function startSpotlightAction(
   eventId: string,
   participantId: string,
 ): Promise<SpotlightActionResult> {
-  const supabase = await createServerSupabaseClient();
-  const event = await requireManageableEvent(supabase, eventId);
-  const participant = await requireManageableParticipant(supabase, participantId);
+  try {
+    const supabase = await createServerSupabaseClient();
+    const event = await requireManageableEvent(supabase, eventId);
+    const participant = await requireManageableParticipant(supabase, participantId);
 
-  if (participant.event_id !== event.id) {
-    return { error: "Этот участник относится к другому мероприятию" };
+    if (participant.event_id !== event.id) {
+      return { error: "Этот участник относится к другому мероприятию" };
+    }
+
+    const result = await setLiveScreenMode(supabase, event.id, "spotlight", participant.id);
+    if (result.error) return result;
+
+    revalidateEventPaths(event);
+    return {};
+  } catch (error) {
+    return createSafeActionError(error);
   }
-
-  const result = await setLiveScreenMode(supabase, event.id, "spotlight", participant.id);
-  if (result.error) return result;
-
-  revalidateEventPaths(event);
-  return {};
 }
 
 export async function endSpotlightAction(eventId: string): Promise<SpotlightActionResult> {
-  const supabase = await createServerSupabaseClient();
-  const event = await requireManageableEvent(supabase, eventId);
-  const result = await setLiveScreenMode(supabase, event.id, "live", null);
+  try {
+    const supabase = await createServerSupabaseClient();
+    const event = await requireManageableEvent(supabase, eventId);
+    const result = await setLiveScreenMode(supabase, event.id, "live", null);
 
-  if (result.error) return result;
+    if (result.error) return result;
 
-  revalidateEventPaths(event);
-  return {};
+    revalidateEventPaths(event);
+    return {};
+  } catch (error) {
+    return createSafeActionError(error);
+  }
 }
 
 function validateParticipantFields(fields: ParticipantFields) {
@@ -340,4 +362,14 @@ function revalidateEventPaths(event: ManageableEvent) {
   revalidatePath(`/dashboard/events/${event.id}`);
   revalidatePath(`/live/${event.slug}`);
   revalidatePath(`/screen/${event.slug}`);
+}
+
+function createSafeActionError(error: unknown): SpotlightActionResult {
+  const message = error instanceof Error ? error.message : "";
+
+  if (message.includes("недоступ")) {
+    return { error: "Нет доступа к этому мероприятию или участнику" };
+  }
+
+  return { error: "Не удалось выполнить действие. Попробуйте ещё раз" };
 }
