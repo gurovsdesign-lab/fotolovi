@@ -2,6 +2,10 @@ import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import type { Event, EventWithPhotoCount } from "@/types/event";
 
+type ProfileRole = {
+  role: "user" | "admin";
+};
+
 export async function getUserEvents(userId: string): Promise<EventWithPhotoCount[]> {
   const supabase = await createServerSupabaseClient();
   const { data: events, error } = await supabase
@@ -12,9 +16,9 @@ export async function getUserEvents(userId: string): Promise<EventWithPhotoCount
 
   if (error || !events) return [];
 
-  const eventsAny = events as any[];
+  const typedEvents = events as Event[];
   const withCounts = await Promise.all(
-    eventsAny.map(async (event) => {
+    typedEvents.map(async (event) => {
       const { count } = await supabase
         .from("photos")
         .select("*", { count: "exact", head: true })
@@ -32,15 +36,17 @@ export async function getUserEvents(userId: string): Promise<EventWithPhotoCount
 
 export async function getEventById(id: string, userId: string): Promise<Event> {
   const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase
-    .from("events")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", userId)
-    .single();
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).maybeSingle();
+  let query = supabase.from("events").select("*").eq("id", id);
+
+  if ((profile as ProfileRole | null)?.role !== "admin") {
+    query = query.eq("user_id", userId);
+  }
+
+  const { data, error } = await query.single();
 
   if (error || !data) notFound();
-  return data as any;
+  return data as Event;
 }
 
 export async function getPublicEvent(slug: string): Promise<Event> {
@@ -48,5 +54,5 @@ export async function getPublicEvent(slug: string): Promise<Event> {
   const { data, error } = await supabase.from("events").select("*").eq("slug", slug).single();
 
   if (error || !data) notFound();
-  return data as any;
+  return data as Event;
 }

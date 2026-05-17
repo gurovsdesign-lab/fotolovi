@@ -77,6 +77,79 @@ export type Database = {
           is_hidden?: boolean;
         };
       };
+      spotlight_participants: {
+        Row: {
+          id: string;
+          event_id: string;
+          display_name: string | null;
+          title: string;
+          subtitle: string | null;
+          body: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          display_name?: string | null;
+          title: string;
+          subtitle?: string | null;
+          body?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          display_name?: string | null;
+          title?: string;
+          subtitle?: string | null;
+          body?: string | null;
+          updated_at?: string;
+        };
+      };
+      spotlight_participant_photos: {
+        Row: {
+          id: string;
+          participant_id: string;
+          event_id: string;
+          storage_path: string;
+          public_url: string;
+          uploaded_at: string;
+        };
+        Insert: {
+          id?: string;
+          participant_id: string;
+          event_id: string;
+          storage_path: string;
+          public_url: string;
+          uploaded_at?: string;
+        };
+        Update: {
+          storage_path?: string;
+          public_url?: string;
+        };
+      };
+      live_screen_states: {
+        Row: {
+          event_id: string;
+          mode: "live" | "spotlight";
+          active_participant_id: string | null;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          event_id: string;
+          mode?: "live" | "spotlight";
+          active_participant_id?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          mode?: "live" | "spotlight";
+          active_participant_id?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+      };
       credits: {
         Row: {
           id: string;

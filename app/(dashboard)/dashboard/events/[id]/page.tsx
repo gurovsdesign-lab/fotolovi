@@ -3,18 +3,25 @@ import { ArrowLeft } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { QRBlock } from "@/components/events/QRBlock";
-import { EventGallery } from "@/components/events/EventGallery";
 import { DeleteEventButton } from "@/components/events/DeleteEventButton";
 import { EventTitleEditor } from "@/components/events/EventTitleEditor";
+import { EventExperienceTabs } from "@/components/events/EventExperienceTabs";
+import { LiveScreenStatusPanel } from "@/components/events/LiveScreenStatusPanel";
 import { requireUser } from "@/features/auth/queries";
 import { getEventById } from "@/features/events/queries";
 import { getEventPhotos } from "@/features/photos/queries";
+import { getEventParticipantsWithPhotos, getLiveScreenState } from "@/features/spotlight/queries";
 import { formatDate } from "@/lib/utils";
 
 export default async function ManageEventPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const [event, photos] = await Promise.all([getEventById(id, user.id), getEventPhotos(id)]);
+  const [event, photos, participants, liveState] = await Promise.all([
+    getEventById(id, user.id),
+    getEventPhotos(id),
+    getEventParticipantsWithPhotos(id),
+    getLiveScreenState(id),
+  ]);
   const baseUrl = "https://fotolovi.vercel.app";
   const guestUrl = `${baseUrl}/event/${event.slug}`;
   const liveUrl = `${baseUrl}/live/${event.slug}`;
@@ -56,7 +63,15 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
           <QRBlock guestUrl={guestUrl} liveUrl={liveUrl} />
         </section>
 
-        <EventGallery photos={photos} eventId={event.id} eventTitle={event.title} />
+        <LiveScreenStatusPanel eventId={event.id} liveState={liveState} />
+
+        <EventExperienceTabs
+          photos={photos}
+          eventId={event.id}
+          eventTitle={event.title}
+          participants={participants}
+          liveState={liveState}
+        />
       </div>
     </DashboardLayout>
   );
