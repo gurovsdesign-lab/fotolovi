@@ -13,6 +13,24 @@ const CENTER_PHOTO_TRANSITION_MS = 900;
 const SNAKE_MIN_QUEUE_LENGTH = 16;
 const SNAKE_STEP_MS = 5200;
 const SNAKE_OFFSCREEN_INSERT_INDEX = 8;
+const LIVE_STATE_REFRESH_MS = 2000;
+
+type LiveStatePayload = {
+  mode: "live" | "spotlight";
+  updatedAt: string | null;
+  participant: null | {
+    id: string;
+    displayName: string | null;
+    title: string;
+    subtitle: string | null;
+    body: string | null;
+    photos: Array<{
+      id: string;
+      publicUrl: string;
+      uploadedAt: string;
+    }>;
+  };
+};
 
 type SideItem =
   | {
@@ -74,6 +92,11 @@ export function LiveScreen({
   );
   const [incomingCenterPhoto, setIncomingCenterPhoto] = useState<LiveScreenPhoto | null>(null);
   const [isIncomingCenterPhotoReady, setIsIncomingCenterPhotoReady] = useState(false);
+  const [liveState, setLiveState] = useState<LiveStatePayload>({
+    mode: "live",
+    updatedAt: null,
+    participant: null,
+  });
 
   useEffect(() => {
     const fetchPhotos = async () => {
@@ -87,6 +110,25 @@ export function LiveScreen({
 
     void fetchPhotos();
     const refresh = window.setInterval(fetchPhotos, LIVE_REFRESH_MS);
+    return () => window.clearInterval(refresh);
+  }, [event.slug]);
+
+  useEffect(() => {
+    const fetchLiveState = async () => {
+      const response = await fetch(`/api/events/${event.slug}/live-state?t=${Date.now()}`, {
+        cache: "no-store",
+      });
+      if (!response.ok && response.status !== 404) return;
+      const payload = (await response.json()) as LiveStatePayload;
+      setLiveState(payload.participant && payload.mode === "spotlight" ? payload : {
+        mode: "live",
+        updatedAt: payload.updatedAt,
+        participant: null,
+      });
+    };
+
+    void fetchLiveState();
+    const refresh = window.setInterval(fetchLiveState, LIVE_STATE_REFRESH_MS);
     return () => window.clearInterval(refresh);
   }, [event.slug]);
 
@@ -151,84 +193,199 @@ export function LiveScreen({
     return () => window.clearTimeout(swap);
   }, [incomingCenterPhoto, isIncomingCenterPhotoReady]);
 
-  if (!visiblePhotos.length || !centerPhoto || !displayedCenterPhoto) {
+  const isSpotlightActive = liveState.mode === "spotlight" && Boolean(liveState.participant);
+
+  if (!visiblePhotos.length && !isSpotlightActive) {
     return <LiveEmptyState guestUrl={guestUrl} title={event.title} />;
   }
 
   return (
     <div className="relative isolate h-screen overflow-hidden bg-night text-white">
-      <svg
-        aria-hidden="true"
-        className="live-ambient-glow pointer-events-none absolute z-0"
-        viewBox="0 0 620 460"
-        preserveAspectRatio="none"
+      <div
+        className={`absolute inset-0 z-10 transition duration-[1200ms] ease-out ${
+          isSpotlightActive ? "scale-[1.01] opacity-25 blur-[1.5px]" : "scale-100 opacity-100 blur-0"
+        }`}
       >
-        <filter id="live-ambient-blur" x="-35%" y="-35%" width="170%" height="170%">
-          <feGaussianBlur stdDeviation="58" />
-        </filter>
-        <g filter="url(#live-ambient-blur)">
-          <ellipse cx="300" cy="224" rx="210" ry="142" fill="#D6B36A" opacity="0.16" />
-          <ellipse cx="390" cy="282" rx="172" ry="84" fill="#D6B36A" opacity="0.06" />
-        </g>
-      </svg>
+        <svg
+          aria-hidden="true"
+          className="live-ambient-glow pointer-events-none absolute z-0"
+          viewBox="0 0 620 460"
+          preserveAspectRatio="none"
+        >
+          <filter id="live-ambient-blur" x="-35%" y="-35%" width="170%" height="170%">
+            <feGaussianBlur stdDeviation="58" />
+          </filter>
+          <g filter="url(#live-ambient-blur)">
+            <ellipse cx="300" cy="224" rx="210" ry="142" fill="#D6B36A" opacity="0.16" />
+            <ellipse cx="390" cy="282" rx="172" ry="84" fill="#D6B36A" opacity="0.06" />
+          </g>
+        </svg>
 
-      <SnakeSideColumns photos={visiblePhotos} />
+        {visiblePhotos.length ? <SnakeSideColumns photos={visiblePhotos} /> : null}
 
-      <header className="relative z-20 px-5 pb-1 pt-7 text-center sm:px-8 lg:px-12">
-        <h1 className="live-title mx-auto py-2 font-display text-[clamp(2.4rem,5.2vw,4rem)] leading-[1.12] text-white">
-          {event.title}
-        </h1>
-      </header>
+        <header className="relative z-20 px-5 pb-1 pt-7 text-center sm:px-8 lg:px-12">
+          <h1 className="live-title mx-auto py-2 font-display text-[clamp(2.4rem,5.2vw,4rem)] leading-[1.12] text-white">
+            {event.title}
+          </h1>
+        </header>
 
-      <main className="relative z-10 h-[calc(100vh-5.8rem)] overflow-hidden px-4 pb-16 sm:px-8 lg:px-12">
-        <section className="relative z-10 grid h-full place-items-center">
-          <div className="live-main-glow relative isolate">
-            <figure className="live-photo-card live-main-photo-card relative z-10 aspect-[4/5] w-[min(74vw,28rem)] max-h-[calc(100vh-13rem)] overflow-hidden rounded-lg sm:h-[min(66vh,46rem)] sm:w-auto">
-              <Image
-                key={displayedCenterPhoto.id}
-                src={displayedCenterPhoto.public_url}
-                alt="Фото мероприятия"
-                fill
-                priority
-                className="live-center-photo-image object-cover"
-                sizes="(max-width: 640px) 72vw, (max-width: 1024px) 46vw, 36vw"
-              />
-              {incomingCenterPhoto ? (
+        <main className="relative z-10 h-[calc(100vh-5.8rem)] overflow-hidden px-4 pb-16 sm:px-8 lg:px-12">
+          <section className="relative z-10 grid h-full place-items-center">
+            {centerPhoto && displayedCenterPhoto ? (
+              <div className="live-main-glow relative isolate">
+                <figure className="live-photo-card live-main-photo-card relative z-10 aspect-[4/5] w-[min(74vw,28rem)] max-h-[calc(100vh-13rem)] overflow-hidden rounded-lg sm:h-[min(66vh,46rem)] sm:w-auto">
                 <Image
-                  key={incomingCenterPhoto.id}
-                  src={incomingCenterPhoto.public_url}
+                  key={displayedCenterPhoto.id}
+                  src={displayedCenterPhoto.public_url}
                   alt="Фото мероприятия"
                   fill
-                  className={`live-center-photo-image object-cover opacity-0 ${
-                    isIncomingCenterPhotoReady ? "animate-live-main-photo" : ""
-                  }`}
+                  priority
+                  className="live-center-photo-image object-cover"
                   sizes="(max-width: 640px) 72vw, (max-width: 1024px) 46vw, 36vw"
-                  onLoad={() => setIsIncomingCenterPhotoReady(true)}
-                  onError={() => {
-                    setIncomingCenterPhoto(null);
-                    setIsIncomingCenterPhotoReady(false);
-                  }}
                 />
-              ) : null}
-            </figure>
+                {incomingCenterPhoto ? (
+                  <Image
+                    key={incomingCenterPhoto.id}
+                    src={incomingCenterPhoto.public_url}
+                    alt="Фото мероприятия"
+                    fill
+                    className={`live-center-photo-image object-cover opacity-0 ${
+                      isIncomingCenterPhotoReady ? "animate-live-main-photo" : ""
+                    }`}
+                    sizes="(max-width: 640px) 72vw, (max-width: 1024px) 46vw, 36vw"
+                    onLoad={() => setIsIncomingCenterPhotoReady(true)}
+                    onError={() => {
+                      setIncomingCenterPhoto(null);
+                      setIsIncomingCenterPhotoReady(false);
+                    }}
+                  />
+                ) : null}
+              </figure>
+            </div>
+          ) : null}
+          </section>
+
+        </main>
+
+        <div className="live-qr-glass pointer-events-auto absolute bottom-5 right-4 z-50 hidden shrink-0 isolate items-center gap-[1.15rem] p-3.5 md:flex lg:bottom-7 lg:right-12">
+          <div className="rounded-md bg-white p-[0.58rem]">
+            <QRCodeCanvas value={guestUrl} size={106} marginSize={1} />
           </div>
-        </section>
-
-      </main>
-
-      <div className="live-qr-glass pointer-events-auto absolute bottom-5 right-4 z-50 hidden shrink-0 isolate items-center gap-[1.15rem] p-3.5 md:flex lg:bottom-7 lg:right-12">
-        <div className="rounded-md bg-white p-[0.58rem]">
-          <QRCodeCanvas value={guestUrl} size={106} marginSize={1} />
+          <div className="pr-2">
+            <p className="text-xl font-semibold">Сканируйте QR</p>
+            <p className="mt-1 text-[0.95rem] text-white/60">Фото появятся здесь</p>
+          </div>
         </div>
-        <div className="pr-2">
-          <p className="text-xl font-semibold">Сканируйте QR</p>
-          <p className="mt-1 text-[0.95rem] text-white/60">Фото появятся здесь</p>
-        </div>
+
+        <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end bg-gradient-to-t from-night via-night/80 to-transparent px-5 pb-7 pt-24 sm:px-8 lg:px-12">
+          <p className="text-lg font-medium text-white/80">{visiblePhotos.length} фото загружено</p>
+        </footer>
       </div>
 
-      <footer className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end bg-gradient-to-t from-night via-night/80 to-transparent px-5 pb-7 pt-24 sm:px-8 lg:px-12">
-        <p className="text-lg font-medium text-white/80">{visiblePhotos.length} фото загружено</p>
-      </footer>
+      <SpotlightOverlay liveState={liveState} />
+    </div>
+  );
+}
+
+function SpotlightOverlay({ liveState }: { liveState: LiveStatePayload }) {
+  const participant = liveState.mode === "spotlight" ? liveState.participant : null;
+
+  return (
+    <section
+      aria-hidden={!participant}
+      className={`pointer-events-none absolute inset-0 z-30 overflow-hidden bg-night/72 px-6 py-8 text-white transition duration-[1200ms] ease-out sm:px-10 lg:px-16 ${
+        participant ? "opacity-100" : "opacity-0"
+      }`}
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_68%_45%,rgba(214,179,106,0.18),transparent_36rem),linear-gradient(90deg,rgba(18,18,18,0.96),rgba(18,18,18,0.74)_48%,rgba(18,18,18,0.48))]" />
+      {participant ? (
+        <div className="relative z-10 grid h-full gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(26rem,1.08fr)] lg:items-center">
+          <div className="flex h-full max-h-[42rem] flex-col justify-center">
+            <p className="text-xs font-medium uppercase tracking-[0.28em] text-gold/90">
+              Spotlight
+            </p>
+            <h2 className="mt-6 max-w-4xl text-wrap font-display text-[clamp(3.4rem,7vw,7.8rem)] leading-[0.94] text-white">
+              {participant.title}
+            </h2>
+            {participant.subtitle ? (
+              <p className="mt-7 max-w-2xl text-[clamp(1.35rem,2.1vw,2.2rem)] leading-snug text-white/72">
+                {participant.subtitle}
+              </p>
+            ) : null}
+            {participant.body ? (
+              <p className="mt-9 max-w-3xl text-[clamp(1.18rem,1.55vw,1.62rem)] leading-[1.55] text-white/76">
+                {participant.body}
+              </p>
+            ) : (
+              <div className="mt-9 h-px w-40 bg-gold/45" />
+            )}
+          </div>
+
+          <SpotlightPhotoStage photos={participant.photos} title={participant.title} />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function SpotlightPhotoStage({
+  photos,
+  title,
+}: {
+  photos: NonNullable<LiveStatePayload["participant"]>["photos"];
+  title: string;
+}) {
+  if (!photos.length) {
+    return (
+      <div className="grid h-full min-h-[24rem] place-items-center">
+        <div className="relative aspect-[4/5] w-[min(58vw,28rem)] overflow-hidden rounded-lg border border-white/12 bg-[linear-gradient(145deg,rgba(255,255,255,0.09),rgba(214,179,106,0.07),rgba(255,255,255,0.035))] shadow-[0_28px_120px_rgba(0,0,0,0.52)]">
+          <div className="absolute inset-8 border border-gold/18" />
+          <div className="absolute inset-0 grid place-items-center p-10 text-center">
+            <p className="font-display text-4xl leading-tight text-white/86">{title}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (photos.length === 1) {
+    return (
+      <div className="grid h-full min-h-[24rem] place-items-center">
+        <figure className="live-spotlight-single-photo relative aspect-[4/5] w-[min(62vw,31rem)] overflow-hidden rounded-lg shadow-[0_30px_130px_rgba(0,0,0,0.58)]">
+          <Image
+            src={photos[0].publicUrl}
+            alt=""
+            fill
+            className="object-cover"
+            sizes="(max-width: 1024px) 72vw, 36vw"
+          />
+        </figure>
+      </div>
+    );
+  }
+
+  const trackPhotos = [...photos, ...photos];
+
+  return (
+    <div className="live-spotlight-photo-mask h-full min-h-[28rem] overflow-hidden">
+      <div className="live-spotlight-photo-track grid gap-6 py-6">
+        {trackPhotos.map((photo, index) => (
+          <figure
+            key={`${photo.id}-${index}`}
+            className={`relative overflow-hidden rounded-lg shadow-[0_24px_100px_rgba(0,0,0,0.48)] ${
+              index % 3 === 1 ? "ml-auto aspect-[5/4] w-[78%]" : "aspect-[4/5] w-[68%]"
+            }`}
+          >
+            <Image
+              src={photo.publicUrl}
+              alt=""
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 72vw, 38vw"
+            />
+          </figure>
+        ))}
+      </div>
     </div>
   );
 }

@@ -115,6 +115,30 @@ img {
   }
 }
 
+@keyframes live-spotlight-photo-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(0, -50%, 0);
+  }
+}
+
+@keyframes live-spotlight-single-photo {
+  0% {
+    transform: scale(1.015) translate3d(0, 1.4%, 0);
+  }
+
+  50% {
+    transform: scale(1.045) translate3d(0, -1.2%, 0);
+  }
+
+  100% {
+    transform: scale(1.015) translate3d(0, 1.4%, 0);
+  }
+}
+
 @keyframes preview-in {
   from {
     opacity: 0;
@@ -257,6 +281,28 @@ img {
   background: radial-gradient(circle at 50% 50%, rgba(214, 179, 106, 0.17), transparent 40rem);
   animation: live-glow-drift 18s ease-in-out infinite;
   transform-origin: center;
+}
+
+.live-spotlight-photo-mask {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+}
+
+.live-spotlight-photo-track {
+  animation: live-spotlight-photo-drift 42s linear infinite;
+  will-change: transform;
+}
+
+.live-spotlight-single-photo img {
+  animation: live-spotlight-single-photo 18s ease-in-out infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-spotlight-photo-track,
+  .live-spotlight-single-photo img {
+    animation: none;
+  }
 }
 
 @media (max-width: 900px) {

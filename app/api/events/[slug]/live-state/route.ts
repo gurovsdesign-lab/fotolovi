@@ -86,7 +86,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     .maybeSingle();
 
   if (stateError || !state || state.mode === "live" || !state.active_participant_id) {
-    if (stateError) {
+    if (stateError && !isMissingSpotlightSchemaError(stateError)) {
       console.error("Failed to load live screen state", {
         eventId: event.id,
         message: stateError.message,
@@ -179,4 +179,8 @@ function createNoStoreLiveStateResponse(payload: LiveStateResponse, status = 200
       Pragma: "no-cache",
     },
   });
+}
+
+function isMissingSpotlightSchemaError(error: DbError) {
+  return error?.message.includes("schema cache") ?? false;
 }

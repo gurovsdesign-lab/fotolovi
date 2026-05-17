@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { PHOTO_BUCKET } from "@/lib/constants";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import { requireUser } from "@/features/auth/queries";
 
@@ -46,6 +47,13 @@ type ParticipantIdentity = {
   event_id: string;
 };
 
+type ParticipantPhotoIdentity = {
+  id: string;
+  participant_id: string;
+  event_id: string;
+  storage_path: string;
+};
+
 type LiveStateIdentity = {
   active_participant_id: string | null;
 };
@@ -81,6 +89,14 @@ type SelectQuery<T> = {
 
 type SelectTable<T> = {
   select(columns: string): SelectQuery<T>;
+};
+
+type SelectListFilter<T> = PromiseLike<{ data: T[] | null; error: DbError }> & {
+  eq(column: string, value: string): SelectListFilter<T>;
+};
+
+type SelectListTable<T> = {
+  select(columns: string): SelectListFilter<T>;
 };
 
 const TITLE_MAX_LENGTH = 40;
@@ -180,6 +196,35 @@ export async function deleteParticipantAction(participantId: string): Promise<Sp
       if (ended.error) return ended;
     }
 
+    const photosTable = supabase.from("spotlight_participant_photos") as unknown as SelectListTable<ParticipantPhotoIdentity>;
+    const { data: photos, error: photosError } = await photosTable
+      .select("id,participant_id,event_id,storage_path")
+      .eq("participant_id", participantId)
+      .eq("event_id", event.id);
+
+    if (photosError) {
+      console.error("Failed to load spotlight participant photos before delete", {
+        participantId,
+        eventId: event.id,
+        message: photosError.message,
+      });
+      return { error: "Не удалось подготовить фото участника к удалению" };
+    }
+
+    const storagePaths = (photos ?? []).map((photo) => photo.storage_path).filter(Boolean);
+    if (storagePaths.length) {
+      const { error: storageError } = await supabase.storage.from(PHOTO_BUCKET).remove(storagePaths);
+
+      if (storageError) {
+        console.error("Failed to remove spotlight participant photos from storage", {
+          participantId,
+          eventId: event.id,
+          message: storageError.message,
+        });
+        return { error: "Не удалось удалить фото участника" };
+      }
+    }
+
     const participantsTable = supabase.from("spotlight_participants") as unknown as UpdateTable<ParticipantValues>;
     const { error } = await participantsTable
       .delete()
@@ -193,6 +238,52 @@ export async function deleteParticipantAction(participantId: string): Promise<Sp
         message: error.message,
       });
       return { error: "Не удалось удалить участника" };
+    }
+
+    revalidateEventPaths(event);
+    return {};
+  } catch (error) {
+    return createSafeActionError(error);
+  }
+}
+
+export async function deleteParticipantPhotoAction(photoId: string): Promise<SpotlightActionResult> {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const photosTable = supabase.from("spotlight_participant_photos") as unknown as SelectTable<ParticipantPhotoIdentity>;
+    const { data: photo, error: photoError } = await photosTable
+      .select("id,participant_id,event_id,storage_path")
+      .eq("id", photoId)
+      .maybeSingle();
+
+    if (photoError || !photo) {
+      return { error: "Фото участника не найдено" };
+    }
+
+    const event = await requireManageableEvent(supabase, photo.event_id);
+
+    const { error: storageError } = await supabase.storage.from(PHOTO_BUCKET).remove([photo.storage_path]);
+
+    if (storageError) {
+      console.error("Failed to remove spotlight participant photo from storage", {
+        photoId,
+        eventId: event.id,
+        storagePath: photo.storage_path,
+        message: storageError.message,
+      });
+      return { error: "Не удалось удалить файл фото" };
+    }
+
+    const deleteTable = supabase.from("spotlight_participant_photos") as unknown as UpdateTable<ParticipantValues>;
+    const { error } = await deleteTable.delete().eq("id", photo.id).eq("event_id", event.id);
+
+    if (error) {
+      console.error("Failed to delete spotlight participant photo row", {
+        photoId,
+        eventId: event.id,
+        message: error.message,
+      });
+      return { error: "Не удалось удалить фото участника" };
     }
 
     revalidateEventPaths(event);

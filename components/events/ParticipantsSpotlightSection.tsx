@@ -1,12 +1,14 @@
 "use client";
 
+import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
-import { Pencil, Play, Plus, Square, Trash2, X } from "lucide-react";
+import { ImagePlus, Loader2, Pencil, Play, Plus, Square, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import {
   createParticipantAction,
   deleteParticipantAction,
+  deleteParticipantPhotoAction,
   endSpotlightAction,
   startSpotlightAction,
   updateParticipantAction,
@@ -130,15 +132,31 @@ export function ParticipantsSpotlightSection({
                 />
                 <div className="relative z-10 grid gap-5">
                   <div className="grid min-h-40 place-items-center overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(135deg,rgba(18,18,18,0.92),rgba(42,34,20,0.92))] p-6 text-center text-white">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold/90">
-                        Представление
-                      </p>
-                      <p className="mt-3 font-display text-3xl leading-tight">{presentationName}</p>
-                      <p className="mt-3 text-sm text-white/55">
-                        Фото участника добавим следующим безопасным шагом
-                      </p>
-                    </div>
+                    {participant.photos.length ? (
+                      <div className="grid w-full grid-cols-3 gap-2">
+                        {participant.photos.slice(0, 3).map((photo) => (
+                          <figure key={photo.id} className="relative aspect-[4/5] overflow-hidden rounded-lg">
+                            <Image
+                              src={photo.public_url}
+                              alt=""
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 1024px) 28vw, 12vw"
+                            />
+                          </figure>
+                        ))}
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold/90">
+                          Представление
+                        </p>
+                        <p className="mt-3 font-display text-3xl leading-tight">{presentationName}</p>
+                        <p className="mt-3 text-sm text-white/55">
+                          Добавьте фото для более сильного момента на экране
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -170,6 +188,8 @@ export function ParticipantsSpotlightSection({
                       </p>
                     )}
                   </div>
+
+                  <ParticipantPhotoManager participant={participant} isActive={isActive} />
 
                   <div className="flex flex-wrap gap-2">
                     {isActive ? (
@@ -253,6 +273,130 @@ export function ParticipantsSpotlightSection({
         />
       ) : null}
     </section>
+  );
+}
+
+function ParticipantPhotoManager({
+  participant,
+  isActive,
+}: {
+  participant: SpotlightParticipantWithPhotos;
+  isActive: boolean;
+}) {
+  const router = useRouter();
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [pendingPhotoId, setPendingPhotoId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  const handleUpload = async (fileList: FileList | null) => {
+    const files = Array.from(fileList ?? []);
+    if (!files.length) return;
+
+    setMessage("");
+    setError("");
+    setIsUploading(true);
+
+    const formData = new FormData();
+    files.forEach((file) => formData.append("files", file));
+
+    try {
+      const response = await fetch(`/api/spotlight/participants/${participant.id}/photos`, {
+        method: "POST",
+        body: formData,
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+      if (!response.ok) {
+        setError(payload?.error || "Не удалось загрузить фото участника");
+        return;
+      }
+
+      setMessage(files.length === 1 ? "Фото добавлено" : `${files.length} фото добавлены`);
+      router.refresh();
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDeletePhoto = (photoId: string) => {
+    setMessage("");
+    setError("");
+    setPendingPhotoId(photoId);
+    startTransition(async () => {
+      const result = await deleteParticipantPhotoAction(photoId);
+      setPendingPhotoId(null);
+
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      router.refresh();
+    });
+  };
+
+  return (
+    <div className="grid gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <label
+          className={`inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition ${
+            isActive
+              ? "border border-white/15 bg-white/10 text-white hover:border-gold/40 hover:bg-white/15"
+              : "border border-black/10 bg-white text-ink hover:border-action/30 hover:text-action"
+          } ${isUploading ? "pointer-events-none opacity-60" : ""}`}
+        >
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+            multiple
+            className="sr-only"
+            disabled={isUploading}
+            onChange={(event) => {
+              void handleUpload(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          {isUploading ? <Loader2 className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+          {isUploading ? "Загружаем..." : "Добавить фото"}
+        </label>
+        {participant.photos.length ? (
+          <span className={`text-xs ${isActive ? "text-white/55" : "text-muted"}`}>
+            {participant.photos.length} фото для spotlight
+          </span>
+        ) : null}
+      </div>
+
+      {participant.photos.length ? (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {participant.photos.map((photo) => (
+            <figure
+              key={photo.id}
+              className="group relative h-20 w-16 shrink-0 overflow-hidden rounded-lg bg-black/10"
+            >
+              <Image src={photo.public_url} alt="" fill className="object-cover" sizes="4rem" />
+              <button
+                type="button"
+                className="absolute right-1 top-1 grid size-7 place-items-center rounded-full bg-black/55 text-white opacity-0 transition hover:bg-black/75 group-hover:opacity-100"
+                disabled={isPending && pendingPhotoId === photo.id}
+                onClick={() => handleDeletePhoto(photo.id)}
+                aria-label="Удалить фото участника"
+              >
+                {pendingPhotoId === photo.id ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <X className="size-3.5" />
+                )}
+              </button>
+            </figure>
+          ))}
+        </div>
+      ) : null}
+
+      {message ? <p className={`text-xs ${isActive ? "text-white/60" : "text-green-700"}`}>{message}</p> : null}
+      {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p> : null}
+    </div>
   );
 }
 
