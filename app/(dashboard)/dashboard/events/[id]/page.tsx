@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { headers } from "next/headers";
 import { Card } from "@/components/ui/Card";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { QRBlock } from "@/components/events/QRBlock";
@@ -11,7 +12,7 @@ import { requireUser } from "@/features/auth/queries";
 import { getEventById } from "@/features/events/queries";
 import { getEventPhotos } from "@/features/photos/queries";
 import { getEventParticipantsWithPhotos, getLiveScreenState } from "@/features/spotlight/queries";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getBaseUrl } from "@/lib/utils";
 
 export default async function ManageEventPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -22,7 +23,7 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
     getEventParticipantsWithPhotos(id),
     getLiveScreenState(id),
   ]);
-  const baseUrl = "https://fotolovi.vercel.app";
+  const baseUrl = await getRequestBaseUrl();
   const guestUrl = `${baseUrl}/event/${event.slug}`;
   const liveUrl = `${baseUrl}/live/${event.slug}`;
 
@@ -75,4 +76,14 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
       </div>
     </DashboardLayout>
   );
+}
+
+async function getRequestBaseUrl() {
+  const headerStore = await headers();
+  const host = headerStore.get("x-forwarded-host") || headerStore.get("host");
+  const proto = headerStore.get("x-forwarded-proto") || "https";
+
+  if (host) return `${proto}://${host}`;
+
+  return getBaseUrl();
 }

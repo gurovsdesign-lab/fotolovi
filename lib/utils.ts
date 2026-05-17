@@ -2,7 +2,6 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 const LOCAL_NETWORK_ORIGIN = "http://192.168.3.112:3000";
-const PRODUCTION_ORIGIN = "https://fotolovi.vercel.app";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -72,10 +71,9 @@ function transliterateCyrillic(value: string) {
 
 export function getBaseUrl() {
   if (process.env.NEXT_PUBLIC_SITE_URL) return trimTrailingSlash(process.env.NEXT_PUBLIC_SITE_URL);
-  if (process.env.VERCEL_URL) return PRODUCTION_ORIGIN;
+  if (process.env.VERCEL_URL) return `https://${trimTrailingSlash(process.env.VERCEL_URL)}`;
 
   if (typeof window !== "undefined" && !isLocalhostOrigin(window.location.origin)) {
-    if (isVercelOrigin(window.location.origin)) return PRODUCTION_ORIGIN;
     return window.location.origin;
   }
 
@@ -88,10 +86,6 @@ function trimTrailingSlash(value: string) {
 
 function isLocalhostOrigin(origin: string) {
   return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(origin);
-}
-
-function isVercelOrigin(origin: string) {
-  return /^https:\/\/[^/]+\.vercel\.app$/i.test(origin);
 }
 
 export function getFileExtension(file: File) {
