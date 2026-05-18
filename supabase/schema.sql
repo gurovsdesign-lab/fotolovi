@@ -195,8 +195,11 @@ grant select, insert on table public.credit_transactions to authenticated;
 grant select on table public.events to anon, authenticated;
 grant select, insert on table public.photos to anon, authenticated;
 grant update, delete on table public.photos to authenticated;
+grant select on table public.spotlight_participants to anon;
 grant select, insert, update, delete on table public.spotlight_participants to authenticated;
+grant select on table public.spotlight_participant_photos to anon;
 grant select, insert, update, delete on table public.spotlight_participant_photos to authenticated;
+grant select on table public.live_screen_states to anon;
 grant select, insert, update, delete on table public.live_screen_states to authenticated;
 grant usage on schema public to service_role;
 grant select on table public.profiles to service_role;
@@ -329,6 +332,19 @@ using (
   )
 );
 
+drop policy if exists "spotlight participants active public read" on public.spotlight_participants;
+create policy "spotlight participants active public read"
+on public.spotlight_participants for select
+using (
+  exists (
+    select 1
+    from public.live_screen_states
+    where live_screen_states.event_id = spotlight_participants.event_id
+      and live_screen_states.mode = 'spotlight'
+      and live_screen_states.active_participant_id = spotlight_participants.id
+  )
+);
+
 drop policy if exists "spotlight participants owner insert" on public.spotlight_participants;
 create policy "spotlight participants owner insert"
 on public.spotlight_participants for insert
@@ -377,6 +393,19 @@ using (
   or exists (
     select 1 from public.events
     where events.id = spotlight_participant_photos.event_id and events.user_id = auth.uid()
+  )
+);
+
+drop policy if exists "spotlight photos active public read" on public.spotlight_participant_photos;
+create policy "spotlight photos active public read"
+on public.spotlight_participant_photos for select
+using (
+  exists (
+    select 1
+    from public.live_screen_states
+    where live_screen_states.event_id = spotlight_participant_photos.event_id
+      and live_screen_states.mode = 'spotlight'
+      and live_screen_states.active_participant_id = spotlight_participant_photos.participant_id
   )
 );
 
@@ -430,6 +459,11 @@ using (
     where events.id = live_screen_states.event_id and events.user_id = auth.uid()
   )
 );
+
+drop policy if exists "live states public read" on public.live_screen_states;
+create policy "live states public read"
+on public.live_screen_states for select
+using (true);
 
 drop policy if exists "live states owner insert" on public.live_screen_states;
 create policy "live states owner insert"
