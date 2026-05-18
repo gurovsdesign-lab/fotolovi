@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createPublicSupabaseClient } from "@/lib/supabasePublic";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import { createServiceRoleSupabaseClient } from "@/lib/supabaseService";
 import type {
@@ -28,7 +29,7 @@ type LiveStateResponse = {
       uploadedAt: string;
     }>;
   };
-  error?: "event_not_found";
+  error?: "event_not_found" | "event_lookup_failed";
   recoveredFromStaleState?: boolean;
 };
 
@@ -54,10 +55,19 @@ type SelectTable<T> = {
   select(columns: string): SelectQuery<T>;
 };
 
+type LiveStateSupabaseClient = {
+  from(table: string): unknown;
+};
+
+type NamedLiveStateClient = {
+  name: "service" | "server" | "public";
+  supabase: LiveStateSupabaseClient;
+};
+
 export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const supabase = await createLiveStateSupabaseClient();
-  const eventsTable = supabase.from("events") as unknown as SelectTable<EventIdentity>;
+  const publicSupabase = createPublicSupabaseClient();
+  const eventsTable = publicSupabase.from("events") as unknown as SelectTable<EventIdentity>;
   const { data: event, error: eventError } = await eventsTable
     .select("id")
     .eq("slug", slug)
@@ -68,6 +78,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
       slug,
       message: eventError.message,
     });
+
+    return createNoStoreLiveStateResponse(
+      {
+        ...createLiveStatePayload(),
+        error: "event_lookup_failed",
+      },
+      500,
+    );
   }
 
   if (!event) {
@@ -80,11 +98,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     );
   }
 
-  const liveStatesTable = supabase.from("live_screen_states") as unknown as SelectTable<LiveScreenState>;
-  const { data: state, error: stateError } = await liveStatesTable
-    .select("*")
-    .eq("event_id", event.id)
-    .maybeSingle();
+  const {
+    supabase: liveStateSupabase,
+    state,
+    error: stateError,
+  } = await loadLiveScreenState(event.id, await createLiveStateSupabaseClients(publicSupabase));
 
   if (stateError || !state || state.mode === "live" || !state.active_participant_id) {
     if (stateError && !isMissingSpotlightSchemaError(stateError)) {
@@ -99,7 +117,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     );
   }
 
-  const participantsTable = supabase.from("spotlight_participants") as unknown as SelectTable<SpotlightParticipant>;
+  const participantsTable = liveStateSupabase.from("spotlight_participants") as unknown as SelectTable<SpotlightParticipant>;
   const { data: participant, error: participantError } = await participantsTable
     .select("id,event_id,display_name,title,subtitle,body,created_at,updated_at")
     .eq("id", state.active_participant_id)
@@ -123,7 +141,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     );
   }
 
-  const photosTable = supabase.from("spotlight_participant_photos") as unknown as SelectTable<SpotlightParticipantPhoto>;
+  const photosTable = liveStateSupabase.from("spotlight_participant_photos") as unknown as SelectTable<SpotlightParticipantPhoto>;
   const { data: photos, error: photosError } = await photosTable
     .select("id,participant_id,event_id,storage_path,public_url,uploaded_at")
     .eq("participant_id", participant.id)
@@ -157,14 +175,60 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   });
 }
 
-async function createLiveStateSupabaseClient() {
+async function createLiveStateSupabaseClients(
+  publicSupabase: ReturnType<typeof createPublicSupabaseClient>,
+): Promise<NamedLiveStateClient[]> {
+  const clients: NamedLiveStateClient[] = [];
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (serviceRoleKey && !serviceRoleKey.startsWith("sb_publishable_")) {
-    return createServiceRoleSupabaseClient();
+    clients.push({
+      name: "service",
+      supabase: createServiceRoleSupabaseClient() as unknown as LiveStateSupabaseClient,
+    });
   }
 
-  return createServerSupabaseClient({ persistCookies: false });
+  clients.push({
+    name: "server",
+    supabase: (await createServerSupabaseClient({
+      persistCookies: false,
+    })) as unknown as LiveStateSupabaseClient,
+  });
+  clients.push({ name: "public", supabase: publicSupabase as unknown as LiveStateSupabaseClient });
+
+  return clients;
+}
+
+async function loadLiveScreenState(eventId: string, clients: NamedLiveStateClient[]) {
+  let lastError: DbError = null;
+  let fallbackSupabase = clients[clients.length - 1]?.supabase;
+
+  for (const client of clients) {
+    const liveStatesTable = client.supabase.from("live_screen_states") as unknown as SelectTable<LiveScreenState>;
+    const { data, error } = await liveStatesTable.select("*").eq("event_id", eventId).maybeSingle();
+
+    if (!error) {
+      return {
+        supabase: client.supabase,
+        state: data,
+        error: null,
+      };
+    }
+
+    lastError = error;
+    fallbackSupabase = client.supabase;
+    console.error("Failed to load live screen state with client", {
+      eventId,
+      client: client.name,
+      message: error.message,
+    });
+  }
+
+  return {
+    supabase: fallbackSupabase,
+    state: null,
+    error: lastError,
+  };
 }
 
 function createLiveStatePayload({
