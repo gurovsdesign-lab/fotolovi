@@ -218,7 +218,7 @@ export function LiveScreen({
     <div className="relative isolate h-screen overflow-hidden bg-night text-white">
       <div
         className={`absolute inset-0 z-10 transition duration-[1200ms] ease-out ${
-          isSpotlightActive ? "scale-[1.01] opacity-25 blur-[1.5px]" : "scale-100 opacity-100 blur-0"
+          isSpotlightActive ? "scale-100 opacity-0" : "scale-100 opacity-100 blur-0"
         }`}
       >
         <svg
@@ -308,35 +308,54 @@ function SpotlightOverlay({ liveState }: { liveState: LiveStatePayload }) {
   return (
     <section
       aria-hidden={!participant}
-      className={`pointer-events-none absolute inset-0 z-30 overflow-hidden bg-night/72 px-6 py-8 text-white transition duration-[1200ms] ease-out sm:px-10 lg:px-16 ${
+      className={`pointer-events-none absolute inset-0 z-30 overflow-hidden bg-night px-6 py-8 text-white transition duration-[1200ms] ease-out sm:px-10 lg:px-16 ${
         participant ? "opacity-100" : "opacity-0"
       }`}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_68%_45%,rgba(214,179,106,0.18),transparent_36rem),linear-gradient(90deg,rgba(18,18,18,0.96),rgba(18,18,18,0.74)_48%,rgba(18,18,18,0.48))]" />
+      <svg
+        aria-hidden="true"
+        className="live-ambient-glow pointer-events-none absolute z-0"
+        viewBox="0 0 620 460"
+        preserveAspectRatio="none"
+      >
+        <filter id="live-spotlight-ambient-blur" x="-35%" y="-35%" width="170%" height="170%">
+          <feGaussianBlur stdDeviation="58" />
+        </filter>
+        <g filter="url(#live-spotlight-ambient-blur)">
+          <ellipse cx="300" cy="224" rx="210" ry="142" fill="#D6B36A" opacity="0.16" />
+          <ellipse cx="390" cy="282" rx="172" ry="84" fill="#D6B36A" opacity="0.06" />
+        </g>
+      </svg>
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_70%_48%,rgba(214,179,106,0.11),transparent_34rem),linear-gradient(180deg,rgba(0,0,0,0.56),transparent_24%,transparent_70%,rgba(0,0,0,0.7)),linear-gradient(90deg,rgba(18,18,18,0.98),rgba(18,18,18,0.86)_42%,rgba(18,18,18,0.94))]" />
       {participant ? (
-        <div className="relative z-10 grid h-full gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(26rem,1.08fr)] lg:items-center">
-          <div className="flex h-full max-h-[42rem] flex-col justify-center">
-            <p className="text-xs font-medium uppercase tracking-[0.28em] text-gold/90">
-              Spotlight
-            </p>
-            <h2 className="mt-6 max-w-4xl text-wrap font-display text-[clamp(3.4rem,7vw,7.8rem)] leading-[0.94] text-white">
+        <div className="relative z-10 h-full">
+          <div className="absolute left-0 top-0 max-w-[min(54rem,calc(100vw-3rem))] sm:left-1 lg:left-3">
+            <h2 className="max-w-4xl text-wrap font-display text-[clamp(3.05rem,5.55vw,6.25rem)] leading-[0.96] text-white">
               {participant.title}
             </h2>
-            {participant.subtitle ? (
-              <p className="mt-7 max-w-2xl text-[clamp(1.35rem,2.1vw,2.2rem)] leading-snug text-white/72">
-                {participant.subtitle}
+            {participant.displayName ? (
+              <p className="mt-5 text-[clamp(1.55rem,2.2vw,2.55rem)] font-medium leading-tight text-white/88">
+                {participant.displayName}
               </p>
             ) : null}
-            {participant.body ? (
-              <p className="mt-9 max-w-3xl text-[clamp(1.18rem,1.55vw,1.62rem)] leading-[1.55] text-white/76">
-                {participant.body}
-              </p>
-            ) : (
-              <div className="mt-9 h-px w-40 bg-gold/45" />
-            )}
           </div>
 
           <SpotlightPhotoStage photos={participant.photos} title={participant.title} />
+
+          {participant.subtitle || participant.body ? (
+            <div className="absolute bottom-0 left-0 max-w-[min(42rem,calc(100vw-3rem))] sm:left-1 lg:left-3">
+              {participant.subtitle ? (
+                <p className="text-[clamp(1.45rem,2.05vw,2.3rem)] font-medium leading-tight text-white/92">
+                  {participant.subtitle}
+                </p>
+              ) : null}
+              {participant.body ? (
+                <p className="mt-4 max-w-[38rem] text-[clamp(1.02rem,1.28vw,1.38rem)] leading-[1.5] text-white/78">
+                  {participant.body}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
@@ -352,8 +371,8 @@ function SpotlightPhotoStage({
 }) {
   if (!photos.length) {
     return (
-      <div className="grid h-full min-h-[24rem] place-items-center">
-        <div className="relative aspect-[4/5] w-[min(58vw,28rem)] overflow-hidden rounded-lg border border-white/12 bg-[linear-gradient(145deg,rgba(255,255,255,0.09),rgba(214,179,106,0.07),rgba(255,255,255,0.035))] shadow-[0_28px_120px_rgba(0,0,0,0.52)]">
+      <div className="absolute inset-x-0 top-1/2 grid -translate-y-1/2 place-items-center">
+        <div className="relative aspect-[4/5] w-[min(42vw,28rem)] overflow-hidden rounded-lg border border-white/12 bg-[linear-gradient(145deg,rgba(255,255,255,0.09),rgba(214,179,106,0.07),rgba(255,255,255,0.035))] shadow-[0_28px_120px_rgba(0,0,0,0.52)]">
           <div className="absolute inset-8 border border-gold/18" />
           <div className="absolute inset-0 grid place-items-center p-10 text-center">
             <p className="font-display text-4xl leading-tight text-white/86">{title}</p>
@@ -365,8 +384,8 @@ function SpotlightPhotoStage({
 
   if (photos.length === 1) {
     return (
-      <div className="grid h-full min-h-[24rem] place-items-center">
-        <figure className="live-spotlight-single-photo relative aspect-[4/5] w-[min(62vw,31rem)] overflow-hidden rounded-lg shadow-[0_30px_130px_rgba(0,0,0,0.58)]">
+      <div className="absolute inset-x-0 top-1/2 grid -translate-y-1/2 place-items-center">
+        <figure className="live-spotlight-single-photo relative aspect-[4/5] w-[min(42vw,31rem)] overflow-hidden rounded-lg shadow-[0_30px_130px_rgba(0,0,0,0.58)]">
           <Image
             src={photos[0].publicUrl}
             alt=""
@@ -380,15 +399,22 @@ function SpotlightPhotoStage({
   }
 
   const trackPhotos = [...photos, ...photos];
+  const spotlightPhotoClasses = [
+    "aspect-[4/3] w-[min(31vw,31rem)]",
+    "aspect-[4/5] w-[min(21vw,24rem)]",
+    "aspect-[5/4] w-[min(29vw,29rem)]",
+    "aspect-[3/4] w-[min(20vw,22rem)]",
+    "aspect-square w-[min(24vw,25rem)]",
+  ];
 
   return (
-    <div className="live-spotlight-photo-mask h-full min-h-[28rem] overflow-hidden">
-      <div className="live-spotlight-photo-track grid gap-6 py-6">
+    <div className="live-spotlight-photo-mask absolute inset-x-[-2rem] top-1/2 -translate-y-1/2 overflow-hidden py-8">
+      <div className="live-spotlight-photo-track flex w-max items-center">
         {trackPhotos.map((photo, index) => (
           <figure
             key={`${photo.id}-${index}`}
-            className={`relative overflow-hidden rounded-lg shadow-[0_24px_100px_rgba(0,0,0,0.48)] ${
-              index % 3 === 1 ? "ml-auto aspect-[5/4] w-[78%]" : "aspect-[4/5] w-[68%]"
+            className={`live-spotlight-photo-card relative shrink-0 overflow-hidden rounded-lg bg-white/5 shadow-[0_24px_100px_rgba(0,0,0,0.48)] ${
+              spotlightPhotoClasses[index % spotlightPhotoClasses.length]
             }`}
           >
             <Image
@@ -396,7 +422,7 @@ function SpotlightPhotoStage({
               alt=""
               fill
               className="object-cover"
-              sizes="(max-width: 1024px) 72vw, 38vw"
+              sizes="(max-width: 1024px) 72vw, 34vw"
             />
           </figure>
         ))}

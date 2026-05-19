@@ -121,7 +121,7 @@ img {
   }
 
   to {
-    transform: translate3d(0, -50%, 0);
+    transform: translate3d(-50%, 0, 0);
   }
 }
 
@@ -284,13 +284,17 @@ img {
 }
 
 .live-spotlight-photo-mask {
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 12%, #000 88%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 10%, #000 90%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 10%, #000 90%, transparent 100%);
 }
 
 .live-spotlight-photo-track {
-  animation: live-spotlight-photo-drift 42s linear infinite;
+  animation: live-spotlight-photo-drift 118s linear infinite;
   will-change: transform;
+}
+
+.live-spotlight-photo-card {
+  margin-right: clamp(1.5rem, 3vw, 3.6rem);
 }
 
 .live-spotlight-single-photo img {
