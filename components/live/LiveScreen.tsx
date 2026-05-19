@@ -489,6 +489,22 @@ function snakeReducer(state: SnakeState, action: SnakeAction): SnakeState {
     };
   }
 
+  if (hasPlaceholderItems(state.queue)) {
+    const queue = reconcileSnakeQueue(state.queue, action.photos);
+
+    if (createSnakeQueueSignature(queue) === createSnakeQueueSignature(state.queue)) {
+      return {
+        queue: state.queue,
+        pendingQueue: null,
+      };
+    }
+
+    return {
+      queue,
+      pendingQueue: null,
+    };
+  }
+
   const pendingQueue = reconcileSnakeQueue(state.pendingQueue ?? state.queue, action.photos);
   if (createSnakeQueueSignature(pendingQueue) === createSnakeQueueSignature(state.queue)) {
     return {
@@ -691,4 +707,8 @@ function createSnakeQueueSignature(queue: SideItem[]) {
 
 function isPhotoItem(item: SideItem): item is Extract<SideItem, { type: "photo" }> {
   return item.type === "photo";
+}
+
+function hasPlaceholderItems(queue: SideItem[]) {
+  return queue.some((item) => item.type === "placeholder");
 }
