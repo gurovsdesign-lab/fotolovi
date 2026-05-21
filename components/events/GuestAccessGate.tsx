@@ -59,7 +59,7 @@ export function GuestAccessGate({ slug }: { slug: string }) {
             placeholder="0000"
             disabled={isPending}
           />
-          <Button type="submit" disabled={isPending || code.length !== 4}>
+          <Button type="submit" disabled={isPending}>
             {isPending ? "Проверяем..." : "Войти"}
           </Button>
         </form>
