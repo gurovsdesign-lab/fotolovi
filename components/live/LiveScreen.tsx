@@ -151,8 +151,10 @@ export function LiveScreen({
     return () => window.clearTimeout(swap);
   }, [incomingCenterPhoto, isIncomingCenterPhotoReady]);
 
+  const guestAccessCode = event.guest_access_code_enabled ? event.guest_access_code : null;
+
   if (!visiblePhotos.length || !centerPhoto || !displayedCenterPhoto) {
-    return <LiveEmptyState guestUrl={guestUrl} title={event.title} />;
+    return <LiveEmptyState guestUrl={guestUrl} title={event.title} accessCode={guestAccessCode} />;
   }
 
   return (
@@ -222,6 +224,9 @@ export function LiveScreen({
         </div>
         <div className="pr-2">
           <p className="text-xl font-semibold">Сканируйте QR</p>
+          {guestAccessCode ? (
+            <p className="mt-1 text-2xl font-semibold tracking-[0.18em] text-gold">{guestAccessCode}</p>
+          ) : null}
           <p className="mt-1 text-[0.95rem] text-white/60">Фото появятся здесь</p>
         </div>
       </div>

@@ -26,7 +26,7 @@ async function getLiveEventBySlug(slug: string): Promise<LiveScreenEvent | null>
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("events")
-    .select("id,title,slug,event_date,is_paid")
+    .select("id,title,slug,event_date,is_paid,guest_access_code_enabled,guest_access_code")
     .eq("slug", slug)
     .single();
 

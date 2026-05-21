@@ -33,6 +33,10 @@ export type Database = {
           slug: string;
           is_paid: boolean;
           photo_limit: number;
+          guest_access_code_enabled: boolean;
+          guest_access_code: string | null;
+          guest_access_mode: "upload_only" | "upload_view" | "upload_view_download";
+          moderation_mode: "show_immediately" | "premoderation";
           created_at: string;
           updated_at: string;
         };
@@ -44,6 +48,10 @@ export type Database = {
           slug: string;
           is_paid?: boolean;
           photo_limit?: number;
+          guest_access_code_enabled?: boolean;
+          guest_access_code?: string | null;
+          guest_access_mode?: "upload_only" | "upload_view" | "upload_view_download";
+          moderation_mode?: "show_immediately" | "premoderation";
           created_at?: string;
           updated_at?: string;
         };
@@ -53,6 +61,10 @@ export type Database = {
           slug?: string;
           is_paid?: boolean;
           photo_limit?: number;
+          guest_access_code_enabled?: boolean;
+          guest_access_code?: string | null;
+          guest_access_mode?: "upload_only" | "upload_view" | "upload_view_download";
+          moderation_mode?: "show_immediately" | "premoderation";
           updated_at?: string;
         };
       };

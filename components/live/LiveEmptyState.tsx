@@ -2,7 +2,15 @@
 
 import { QRCodeCanvas } from "qrcode.react";
 
-export function LiveEmptyState({ guestUrl, title }: { guestUrl: string; title: string }) {
+export function LiveEmptyState({
+  guestUrl,
+  title,
+  accessCode,
+}: {
+  guestUrl: string;
+  title: string;
+  accessCode?: string | null;
+}) {
   return (
     <div className="relative grid min-h-screen place-items-center overflow-hidden bg-night px-6 text-white">
       <div className="live-empty-glow absolute inset-0" />
@@ -13,6 +21,9 @@ export function LiveEmptyState({ guestUrl, title }: { guestUrl: string; title: s
         </div>
         <div>
           <h1 className="text-3xl font-semibold">Сканируйте QR и добавляйте фото</h1>
+          {accessCode ? (
+            <p className="mt-3 text-2xl font-semibold tracking-[0.18em] text-gold">{accessCode}</p>
+          ) : null}
           <p className="mt-3 text-lg text-white/68">Ваши фотографии появятся на экране</p>
         </div>
       </div>

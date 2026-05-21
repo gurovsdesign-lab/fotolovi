@@ -5,11 +5,13 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { QRBlock } from "@/components/events/QRBlock";
 import { EventGallery } from "@/components/events/EventGallery";
 import { DeleteEventButton } from "@/components/events/DeleteEventButton";
+import { EventDateEditor } from "@/components/events/EventDateEditor";
 import { EventTitleEditor } from "@/components/events/EventTitleEditor";
+import { EventSettingsButton } from "@/components/events/EventSettingsButton";
 import { requireUser } from "@/features/auth/queries";
 import { getEventById } from "@/features/events/queries";
 import { getEventPhotos } from "@/features/photos/queries";
-import { formatDate } from "@/lib/utils";
+import { getTodayDateString, isPastEventDate } from "@/lib/eventSettings";
 
 export default async function ManageEventPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -18,6 +20,8 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
   const baseUrl = "https://fotolovi.vercel.app";
   const guestUrl = `${baseUrl}/event/${event.slug}`;
   const liveUrl = `${baseUrl}/live/${event.slug}`;
+  const today = getTodayDateString();
+  const canEditDate = !isPastEventDate(event.event_date, today);
 
   return (
     <DashboardLayout email={user.email}>
@@ -31,11 +35,23 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
         </Link>
 
         <section className="grid gap-5 lg:grid-cols-[1fr_360px]">
-          <Card className="grid gap-6">
-            <div>
+          <Card className="relative grid gap-6">
+            <EventSettingsButton
+              eventId={event.id}
+              guestAccessCodeEnabled={event.guest_access_code_enabled}
+              guestAccessCode={event.guest_access_code}
+              guestAccessMode={event.guest_access_mode}
+              moderationMode={event.moderation_mode}
+            />
+            <div className="pr-12">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">Управление</p>
               <EventTitleEditor eventId={event.id} title={event.title} />
-              <p className="mt-3 text-muted">{formatDate(event.event_date)}</p>
+              <EventDateEditor
+                eventId={event.id}
+                eventDate={event.event_date}
+                today={today}
+                canEdit={canEditDate}
+              />
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl bg-ivory p-4">
@@ -53,7 +69,7 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
             </div>
             <DeleteEventButton eventId={event.id} eventTitle={event.title} isPaid={event.is_paid} />
           </Card>
-          <QRBlock guestUrl={guestUrl} liveUrl={liveUrl} />
+          <QRBlock guestUrl={guestUrl} liveUrl={liveUrl} eventTitle={event.title} />
         </section>
 
         <EventGallery photos={photos} eventId={event.id} eventTitle={event.title} />

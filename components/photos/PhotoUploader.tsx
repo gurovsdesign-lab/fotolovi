@@ -10,7 +10,7 @@ import {
   MAX_UPLOAD_SIZE_MB,
   PHOTO_BUCKET,
 } from "@/lib/constants";
-import { cn, getFileExtension } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { Loader } from "@/components/ui/Loader";
 import type { Database } from "@/types/database";
 
@@ -33,11 +33,13 @@ export function PhotoUploader({
   eventSlug,
   photoLimit,
   currentCount,
+  isPremoderated = false,
 }: {
   eventId: EventId;
   eventSlug: string;
   photoLimit: number;
   currentCount: number;
+  isPremoderated?: boolean;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -166,9 +168,13 @@ export function PhotoUploader({
     if (inputRef.current) inputRef.current.value = "";
     setStatus("success");
     setMessage(
-      files.length === 1
-        ? "Спасибо! Ваш снимок добавлен в альбом"
-        : `Спасибо! ${files.length} фото добавлены в альбом`,
+      isPremoderated
+        ? files.length === 1
+          ? "Спасибо! Ваш снимок отправлен на модерацию"
+          : `Спасибо! ${files.length} фото отправлены на модерацию`
+        : files.length === 1
+          ? "Спасибо! Ваш снимок добавлен в альбом"
+          : `Спасибо! ${files.length} фото добавлены в альбом`,
     );
     startTransition(() => router.refresh());
   }
@@ -181,7 +187,9 @@ export function PhotoUploader({
         <div>
           <h2 className="text-2xl font-semibold text-ink">Добавьте фото в общий альбом</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            Ваши снимки появятся в галерее и на экране мероприятия.
+            {isPremoderated
+              ? "Ваши снимки появятся после проверки ведущим."
+              : "Ваши снимки появятся в галерее и на экране мероприятия."}
           </p>
         </div>
         <div className="relative h-14">

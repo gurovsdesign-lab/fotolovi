@@ -1,8 +1,16 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { FREE_EVENT_PHOTO_LIMIT } from "@/lib/constants";
+import {
+  createGuestAccessCookieName,
+  getTodayDateString,
+  isGuestAccessMode,
+  isModerationMode,
+  isPastEventDate,
+} from "@/lib/eventSettings";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import { createSlug } from "@/lib/utils";
 import { requireUser } from "@/features/auth/queries";
@@ -14,6 +22,26 @@ export type EventActionState = {
 export type RenameEventResult = {
   error?: string;
   title?: string;
+};
+
+export type UpdateEventDateResult = {
+  error?: string;
+  eventDate?: string;
+};
+
+export type EventSettingsResult = {
+  error?: string;
+  settings?: {
+    guestAccessCodeEnabled: boolean;
+    guestAccessCode: string | null;
+    guestAccessMode: "upload_only" | "upload_view" | "upload_view_download";
+    moderationMode: "show_immediately" | "premoderation";
+  };
+};
+
+export type GuestAccessCodeResult = {
+  error?: string;
+  success?: boolean;
 };
 
 export async function createEventAction(
@@ -143,4 +171,202 @@ export async function renameEventAction(eventId: string, title: string): Promise
   revalidatePath(`/dashboard/events/${eventId}`);
 
   return { title: event.title };
+}
+
+export async function updateEventDateAction(
+  eventId: string,
+  eventDate: string,
+): Promise<UpdateEventDateResult> {
+  const user = await requireUser();
+  const nextDate = eventDate.trim();
+  const today = getTodayDateString();
+
+  if (!eventId) {
+    return { error: "Не удалось определить мероприятие" };
+  }
+
+  if (!isDateInputValue(nextDate)) {
+    return { error: "Укажите дату в формате ГГГГ-ММ-ДД" };
+  }
+
+  if (nextDate < today) {
+    return { error: "Нельзя установить дату в прошлом" };
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const { data: currentEvent, error: loadError } = await supabase
+    .from("events")
+    .select("event_date,slug")
+    .eq("id", eventId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (loadError || !currentEvent) {
+    return { error: loadError?.message || "Не удалось найти мероприятие" };
+  }
+
+  const currentEventData = currentEvent as unknown as { event_date: string; slug: string };
+
+  if (isPastEventDate(currentEventData.event_date, today)) {
+    return { error: "Дата прошедшего мероприятия заблокирована" };
+  }
+
+  const { data, error } = await supabase
+    .from("events")
+    .update({ event_date: nextDate } as never)
+    .eq("id", eventId)
+    .eq("user_id", user.id)
+    .select("event_date")
+    .single();
+
+  if (error || !data) {
+    return { error: error?.message || "Не удалось обновить дату" };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/dashboard/events/${eventId}`);
+  revalidatePath(`/event/${currentEventData.slug}`);
+  revalidatePath(`/live/${currentEventData.slug}`);
+
+  const updatedEvent = data as unknown as { event_date: string };
+  return { eventDate: updatedEvent.event_date };
+}
+
+export async function updateEventSettingsAction(formData: FormData): Promise<EventSettingsResult> {
+  const user = await requireUser();
+  const eventId = String(formData.get("eventId") || "");
+  const guestAccessCodeEnabled = formData.get("guestAccessCodeEnabled") === "on";
+  const shouldRegenerateAccessCode = formData.get("regenerateAccessCode") === "true";
+  const submittedAccessCode = String(formData.get("guestAccessCode") || "").trim();
+  const guestAccessMode = String(formData.get("guestAccessMode") || "");
+  const moderationMode = String(formData.get("moderationMode") || "");
+
+  if (!eventId) {
+    return { error: "Не удалось определить мероприятие" };
+  }
+
+  if (!isGuestAccessMode(guestAccessMode)) {
+    return { error: "Выберите режим доступа гостей" };
+  }
+
+  if (!isModerationMode(moderationMode)) {
+    return { error: "Выберите режим модерации" };
+  }
+
+  if (guestAccessCodeEnabled && submittedAccessCode && !/^\d{4}$/.test(submittedAccessCode)) {
+    return { error: "Код доступа должен состоять из 4 цифр" };
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const { data: currentEvent, error: loadError } = await supabase
+    .from("events")
+    .select("slug,guest_access_code")
+    .eq("id", eventId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (loadError || !currentEvent) {
+    return { error: loadError?.message || "Не удалось найти мероприятие" };
+  }
+
+  const currentEventData = currentEvent as unknown as { slug: string };
+  const nextAccessCode = guestAccessCodeEnabled
+    ? shouldRegenerateAccessCode || !submittedAccessCode
+      ? createFourDigitCode()
+      : submittedAccessCode
+    : null;
+
+  const { data, error } = await supabase
+    .from("events")
+    .update({
+      guest_access_code_enabled: guestAccessCodeEnabled,
+      guest_access_code: nextAccessCode,
+      guest_access_mode: guestAccessMode,
+      moderation_mode: moderationMode,
+    } as never)
+    .eq("id", eventId)
+    .eq("user_id", user.id)
+    .select("guest_access_code_enabled,guest_access_code,guest_access_mode,moderation_mode")
+    .single();
+
+  if (error || !data) {
+    return { error: error?.message || "Не удалось сохранить настройки" };
+  }
+
+  revalidatePath(`/dashboard/events/${eventId}`);
+  revalidatePath(`/event/${currentEventData.slug}`);
+  revalidatePath(`/live/${currentEventData.slug}`);
+
+  const settings = data as unknown as {
+    guest_access_code_enabled: boolean;
+    guest_access_code: string | null;
+    guest_access_mode: "upload_only" | "upload_view" | "upload_view_download";
+    moderation_mode: "show_immediately" | "premoderation";
+  };
+  return {
+    settings: {
+      guestAccessCodeEnabled: settings.guest_access_code_enabled,
+      guestAccessCode: settings.guest_access_code,
+      guestAccessMode: settings.guest_access_mode,
+      moderationMode: settings.moderation_mode,
+    },
+  };
+}
+
+export async function verifyGuestAccessCodeAction(
+  slug: string,
+  code: string,
+): Promise<GuestAccessCodeResult> {
+  const submittedCode = code.trim();
+
+  if (!/^\d{4}$/.test(submittedCode)) {
+    return { error: "Введите 4-значный код" };
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const { data: event, error } = await supabase
+    .from("events")
+    .select("slug,guest_access_code_enabled,guest_access_code")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (error || !event) {
+    return { error: error?.message || "Мероприятие не найдено" };
+  }
+
+  const guestEvent = event as unknown as {
+    slug: string;
+    guest_access_code_enabled: boolean;
+    guest_access_code: string | null;
+  };
+
+  if (!guestEvent.guest_access_code_enabled) {
+    return { success: true };
+  }
+
+  if (guestEvent.guest_access_code !== submittedCode) {
+    return { error: "Неверный код доступа" };
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(createGuestAccessCookieName(guestEvent.slug), submittedCode, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 12,
+  });
+
+  revalidatePath(`/event/${guestEvent.slug}`);
+  return { success: true };
+}
+
+function isDateInputValue(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function createFourDigitCode() {
+  const bytes = new Uint32Array(1);
+  crypto.getRandomValues(bytes);
+  return String(bytes[0] % 10000).padStart(4, "0");
 }

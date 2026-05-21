@@ -1,5 +1,8 @@
-import { PhotoGrid } from "@/components/photos/PhotoGrid";
+import { cookies } from "next/headers";
+import { GuestAccessGate } from "@/components/events/GuestAccessGate";
+import { PhotoDownloadAllButton, PhotoGrid } from "@/components/photos/PhotoGrid";
 import { PhotoUploader } from "@/components/photos/PhotoUploader";
+import { createGuestAccessCookieName } from "@/lib/eventSettings";
 import { createPublicSupabaseClient } from "@/lib/supabasePublic";
 import { formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -15,6 +18,10 @@ type GuestEvent = {
   event_date: string;
   is_paid: boolean;
   photo_limit: number;
+  guest_access_code_enabled: boolean;
+  guest_access_code: string | null;
+  guest_access_mode: "upload_only" | "upload_view" | "upload_view_download";
+  moderation_mode: "show_immediately" | "premoderation";
 };
 
 export const dynamic = "force-dynamic";
@@ -29,9 +36,12 @@ export default async function GuestEventPage({ params }: { params: Promise<{ slu
     notFound();
   }
 
+  const hasAccess = await hasValidGuestAccess(event);
+  const canViewGallery = event.guest_access_mode !== "upload_only";
+  const canDownloadAll = event.guest_access_mode === "upload_view_download";
   const [photos, count] = await Promise.all([
-    getGuestEventPhotos(event.id),
-    getGuestPhotoCount(event.id),
+    hasAccess && canViewGallery ? getGuestEventPhotos(event.id) : Promise.resolve([]),
+    hasAccess ? getGuestPhotoCount(event.id) : Promise.resolve(0),
   ]);
 
   return (
@@ -45,20 +55,32 @@ export default async function GuestEventPage({ params }: { params: Promise<{ slu
           <p className="mt-3 text-muted">{formatDate(event.event_date)}</p>
         </section>
 
-        <PhotoUploader
-          eventId={event.id}
-          eventSlug={event.slug}
-          photoLimit={event.photo_limit}
-          currentCount={count}
-        />
+        {hasAccess ? (
+          <PhotoUploader
+            eventId={event.id}
+            eventSlug={event.slug}
+            photoLimit={event.photo_limit}
+            currentCount={count}
+            isPremoderated={event.moderation_mode === "premoderation"}
+          />
+        ) : (
+          <GuestAccessGate slug={event.slug} />
+        )}
 
-        <section className="grid gap-4">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold text-ink">Общая галерея</h2>
-            <span className="text-sm text-muted">{photos.length} фото</span>
-          </div>
-          <PhotoGrid photos={photos} eventId={event.id} eventTitle={event.title} />
-        </section>
+        {hasAccess && canViewGallery ? (
+          <section className="grid gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold text-ink">Общая галерея</h2>
+                <p className="mt-1 text-sm text-muted">{photos.length} фото</p>
+              </div>
+              {canDownloadAll ? (
+                <PhotoDownloadAllButton photos={photos} eventTitle={event.title} className="sm:items-end" />
+              ) : null}
+            </div>
+            <PhotoGrid photos={photos} eventId={event.id} eventTitle={event.title} />
+          </section>
+        ) : null}
       </div>
     </main>
   );
@@ -68,7 +90,7 @@ async function getGuestEventBySlug(slug: string): Promise<GuestEvent | null> {
   const supabase = createPublicSupabaseClient();
   const { data, error } = await supabase
     .from("events")
-    .select("id,title,slug,event_date,is_paid,photo_limit")
+    .select("id,title,slug,event_date,is_paid,photo_limit,guest_access_code_enabled,guest_access_code,guest_access_mode,moderation_mode")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -76,7 +98,14 @@ async function getGuestEventBySlug(slug: string): Promise<GuestEvent | null> {
     throw new Error(`Failed to load guest event with public anon key: ${error.message}`);
   }
 
-  return data;
+  return data as GuestEvent | null;
+}
+
+async function hasValidGuestAccess(event: GuestEvent) {
+  if (!event.guest_access_code_enabled) return true;
+  const cookieStore = await cookies();
+  const accessCode = cookieStore.get(createGuestAccessCookieName(event.slug))?.value;
+  return Boolean(accessCode && accessCode === event.guest_access_code);
 }
 
 async function getGuestEventPhotos(eventId: string): Promise<Photo[]> {

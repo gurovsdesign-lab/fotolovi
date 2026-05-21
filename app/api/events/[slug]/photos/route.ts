@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { getLiveScreenPhotos } from "@/features/live/queries";
 import {
   MAX_FILES_PER_UPLOAD,
@@ -6,6 +7,7 @@ import {
   MAX_UPLOAD_SIZE_BYTES,
   PHOTO_BUCKET,
 } from "@/lib/constants";
+import { createGuestAccessCookieName } from "@/lib/eventSettings";
 import { createPublicSupabaseClient } from "@/lib/supabasePublic";
 import { getFileExtension } from "@/lib/utils";
 
@@ -72,7 +74,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   const supabase = createPublicSupabaseClient();
   const { data: event, error: eventError } = await supabase
     .from("events")
-    .select("id,photo_limit")
+    .select("id,slug,photo_limit,guest_access_code_enabled,guest_access_code,moderation_mode")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -84,10 +86,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     return NextResponse.json({ error: "Не удалось найти мероприятие" }, { status: 500 });
   }
 
-  const uploadEvent = event as { id: string; photo_limit: number } | null;
+  const uploadEvent = event as {
+    id: string;
+    slug: string;
+    photo_limit: number;
+    guest_access_code_enabled: boolean;
+    guest_access_code: string | null;
+    moderation_mode: "show_immediately" | "premoderation";
+  } | null;
 
   if (!uploadEvent) {
     return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
+  }
+
+  if (uploadEvent.guest_access_code_enabled) {
+    const cookieStore = await cookies();
+    const cookieCode = cookieStore.get(createGuestAccessCookieName(uploadEvent.slug))?.value;
+    const submittedCode = String(formData.get("accessCode") || "").trim();
+    const accessCode = submittedCode || cookieCode;
+
+    if (accessCode !== uploadEvent.guest_access_code) {
+      return NextResponse.json({ error: "Введите код доступа с live screen" }, { status: 403 });
+    }
   }
 
   const { count, error: countError } = await supabase
@@ -141,7 +161,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
         event_id: uploadEvent.id,
         storage_path: storagePath,
         public_url: publicData.publicUrl,
-      } as any)
+        is_hidden: uploadEvent.moderation_mode === "premoderation",
+      } as never)
       .select("*")
       .single();
 

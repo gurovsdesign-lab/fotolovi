@@ -24,9 +24,55 @@ create table if not exists public.events (
   slug text not null unique,
   is_paid boolean not null default false,
   photo_limit integer not null default 30,
+  guest_access_code_enabled boolean not null default false,
+  guest_access_code text check (guest_access_code is null or guest_access_code ~ '^[0-9]{4}$'),
+  guest_access_mode text not null default 'upload_view_download' check (guest_access_mode in ('upload_only', 'upload_view', 'upload_view_download')),
+  moderation_mode text not null default 'show_immediately' check (moderation_mode in ('show_immediately', 'premoderation')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.events
+add column if not exists guest_access_code_enabled boolean not null default false;
+
+alter table public.events
+add column if not exists guest_access_code text;
+
+alter table public.events
+add column if not exists guest_access_mode text not null default 'upload_view_download';
+
+alter table public.events
+add column if not exists moderation_mode text not null default 'show_immediately';
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'events_guest_access_code_check'
+  ) then
+    alter table public.events
+    add constraint events_guest_access_code_check
+    check (guest_access_code is null or guest_access_code ~ '^[0-9]{4}$');
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'events_guest_access_mode_check'
+  ) then
+    alter table public.events
+    add constraint events_guest_access_mode_check
+    check (guest_access_mode in ('upload_only', 'upload_view', 'upload_view_download'));
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'events_moderation_mode_check'
+  ) then
+    alter table public.events
+    add constraint events_moderation_mode_check
+    check (moderation_mode in ('show_immediately', 'premoderation'));
+  end if;
+end $$;
 
 create table if not exists public.photos (
   id uuid primary key default gen_random_uuid(),

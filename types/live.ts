@@ -4,6 +4,8 @@ export type LiveScreenEvent = {
   slug: string;
   event_date: string;
   is_paid: boolean;
+  guest_access_code_enabled: boolean;
+  guest_access_code: string | null;
 };
 
 export type LiveScreenPhoto = {

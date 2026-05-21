@@ -27,12 +27,7 @@ export function PhotoGrid({
   canManage?: boolean;
 }) {
   const [previewPhoto, setPreviewPhoto] = useState<Photo | null>(null);
-  const [downloadAllState, setDownloadAllState] = useState<DownloadState>({ status: "idle" });
   const [singleDownloadId, setSingleDownloadId] = useState<string | null>(null);
-  const downloadablePhotos = useMemo(
-    () => photos.filter((photo) => !photo.is_hidden),
-    [photos],
-  );
 
   useEffect(() => {
     if (!previewPhoto) return;
@@ -61,32 +56,6 @@ export function PhotoGrid({
     );
   }
 
-  const isDownloadingAll = downloadAllState.status === "loading";
-
-  async function downloadAllPhotos() {
-    if (!downloadablePhotos.length || isDownloadingAll) return;
-
-    setDownloadAllState({
-      status: "loading",
-      current: 0,
-      total: downloadablePhotos.length,
-    });
-
-    try {
-      const zipBlob = await createPhotoZip(downloadablePhotos, eventTitle, (current, total) => {
-        setDownloadAllState({ status: "loading", current, total });
-      });
-      downloadBlob(zipBlob, `${createSafeFilename(eventTitle)}-photos.zip`);
-      setDownloadAllState({ status: "idle" });
-    } catch (error) {
-      console.error("Failed to download event photos zip", error);
-      setDownloadAllState({
-        status: "error",
-        message: "Не удалось подготовить архив. Попробуйте ещё раз",
-      });
-    }
-  }
-
   async function downloadSinglePhoto(photo: Photo) {
     if (singleDownloadId) return;
 
@@ -104,38 +73,16 @@ export function PhotoGrid({
 
   return (
     <>
-      <div className="grid gap-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <button
-            type="button"
-            onClick={downloadAllPhotos}
-            disabled={!downloadablePhotos.length || isDownloadingAll}
-            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-4 text-sm font-medium text-ink shadow-sm transition hover:border-action/30 hover:text-action disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto"
-          >
-            {isDownloadingAll ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-            {isDownloadingAll ? "Готовим архив..." : "Скачать все фото"}
-          </button>
-          {downloadAllState.status === "loading" ? (
-            <p className="text-center text-xs text-muted sm:text-right">
-              {downloadAllState.current} из {downloadAllState.total}
-            </p>
-          ) : null}
-          {downloadAllState.status === "error" ? (
-            <p className="text-center text-xs text-red-600 sm:text-right">{downloadAllState.message}</p>
-          ) : null}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {photos.map((photo) => (
-            <PhotoCard
-              key={photo.id}
-              photo={photo}
-              eventId={eventId}
-              canManage={canManage}
-              onPreview={() => setPreviewPhoto(photo)}
-            />
-          ))}
-        </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {photos.map((photo) => (
+          <PhotoCard
+            key={photo.id}
+            photo={photo}
+            eventId={eventId}
+            canManage={canManage}
+            onPreview={() => setPreviewPhoto(photo)}
+          />
+        ))}
       </div>
 
       {previewPhoto ? (
@@ -188,6 +135,69 @@ export function PhotoGrid({
         </div>
       ) : null}
     </>
+  );
+}
+
+export function PhotoDownloadAllButton({
+  photos,
+  eventTitle,
+  className,
+}: {
+  photos: Photo[];
+  eventTitle: string;
+  className?: string;
+}) {
+  const [downloadAllState, setDownloadAllState] = useState<DownloadState>({ status: "idle" });
+  const downloadablePhotos = useMemo(
+    () => photos.filter((photo) => !photo.is_hidden),
+    [photos],
+  );
+  const isDownloadingAll = downloadAllState.status === "loading";
+
+  async function downloadAllPhotos() {
+    if (!downloadablePhotos.length || isDownloadingAll) return;
+
+    setDownloadAllState({
+      status: "loading",
+      current: 0,
+      total: downloadablePhotos.length,
+    });
+
+    try {
+      const zipBlob = await createPhotoZip(downloadablePhotos, eventTitle, (current, total) => {
+        setDownloadAllState({ status: "loading", current, total });
+      });
+      downloadBlob(zipBlob, `${createSafeFilename(eventTitle)}-photos.zip`);
+      setDownloadAllState({ status: "idle" });
+    } catch (error) {
+      console.error("Failed to download event photos zip", error);
+      setDownloadAllState({
+        status: "error",
+        message: "Не удалось подготовить архив. Попробуйте ещё раз",
+      });
+    }
+  }
+
+  return (
+    <div className={cn("grid gap-1", className)}>
+      <button
+        type="button"
+        onClick={downloadAllPhotos}
+        disabled={!downloadablePhotos.length || isDownloadingAll}
+        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-4 text-sm font-medium text-ink shadow-sm transition hover:border-action/30 hover:text-action disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto"
+      >
+        {isDownloadingAll ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+        {isDownloadingAll ? "Готовим архив..." : "Скачать все фото"}
+      </button>
+      {downloadAllState.status === "loading" ? (
+        <p className="text-center text-xs text-muted sm:text-right">
+          {downloadAllState.current} из {downloadAllState.total}
+        </p>
+      ) : null}
+      {downloadAllState.status === "error" ? (
+        <p className="text-center text-xs text-red-600 sm:text-right">{downloadAllState.message}</p>
+      ) : null}
+    </div>
   );
 }
 
