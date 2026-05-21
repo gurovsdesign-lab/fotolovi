@@ -26,7 +26,7 @@ async function getLiveEventBySlug(slug: string): Promise<LiveScreenEvent | null>
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("events")
-    .select("id,title,slug,event_date,is_paid,guest_access_code_enabled,guest_access_code")
+    .select("*")
     .eq("slug", slug)
     .single();
 
@@ -42,7 +42,12 @@ async function getLiveEventBySlug(slug: string): Promise<LiveScreenEvent | null>
     return null;
   }
 
-  return data;
+  const liveEvent = data as unknown as LiveScreenEvent;
+  return {
+    ...liveEvent,
+    guest_access_code_enabled: Boolean(liveEvent.guest_access_code_enabled),
+    guest_access_code: liveEvent.guest_access_code ?? null,
+  };
 }
 
 function MissingLiveEvent({ slug }: { slug: string }) {

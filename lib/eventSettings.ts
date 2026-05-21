@@ -1,4 +1,6 @@
 export const APP_TIME_ZONE = "Europe/Moscow";
+export const DEFAULT_GUEST_ACCESS_MODE = "upload_view_download";
+export const DEFAULT_MODERATION_MODE = "show_immediately";
 
 export const guestAccessModes = ["upload_only", "upload_view", "upload_view_download"] as const;
 export const moderationModes = ["show_immediately", "premoderation"] as const;
@@ -12,6 +14,14 @@ export function isGuestAccessMode(value: string): value is GuestAccessMode {
 
 export function isModerationMode(value: string): value is ModerationMode {
   return moderationModes.includes(value as ModerationMode);
+}
+
+export function normalizeGuestAccessMode(value: string | null | undefined): GuestAccessMode {
+  return value && isGuestAccessMode(value) ? value : DEFAULT_GUEST_ACCESS_MODE;
+}
+
+export function normalizeModerationMode(value: string | null | undefined): ModerationMode {
+  return value && isModerationMode(value) ? value : DEFAULT_MODERATION_MODE;
 }
 
 export function getTodayDateString(timeZone = APP_TIME_ZONE) {

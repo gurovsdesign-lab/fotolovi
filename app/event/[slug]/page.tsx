@@ -2,7 +2,13 @@ import { cookies } from "next/headers";
 import { GuestAccessGate } from "@/components/events/GuestAccessGate";
 import { PhotoDownloadAllButton, PhotoGrid } from "@/components/photos/PhotoGrid";
 import { PhotoUploader } from "@/components/photos/PhotoUploader";
-import { createGuestAccessCookieName } from "@/lib/eventSettings";
+import {
+  createGuestAccessCookieName,
+  normalizeGuestAccessMode,
+  normalizeModerationMode,
+  type GuestAccessMode,
+  type ModerationMode,
+} from "@/lib/eventSettings";
 import { createPublicSupabaseClient } from "@/lib/supabasePublic";
 import { formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -20,8 +26,15 @@ type GuestEvent = {
   photo_limit: number;
   guest_access_code_enabled: boolean;
   guest_access_code: string | null;
-  guest_access_mode: "upload_only" | "upload_view" | "upload_view_download";
-  moderation_mode: "show_immediately" | "premoderation";
+  guest_access_mode: GuestAccessMode;
+  moderation_mode: ModerationMode;
+};
+
+type GuestEventRow = Omit<GuestEvent, "guest_access_code_enabled" | "guest_access_code" | "guest_access_mode" | "moderation_mode"> & {
+  guest_access_code_enabled?: boolean | null;
+  guest_access_code?: string | null;
+  guest_access_mode?: string | null;
+  moderation_mode?: string | null;
 };
 
 export const dynamic = "force-dynamic";
@@ -90,7 +103,7 @@ async function getGuestEventBySlug(slug: string): Promise<GuestEvent | null> {
   const supabase = createPublicSupabaseClient();
   const { data, error } = await supabase
     .from("events")
-    .select("id,title,slug,event_date,is_paid,photo_limit,guest_access_code_enabled,guest_access_code,guest_access_mode,moderation_mode")
+    .select("*")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -98,7 +111,17 @@ async function getGuestEventBySlug(slug: string): Promise<GuestEvent | null> {
     throw new Error(`Failed to load guest event with public anon key: ${error.message}`);
   }
 
-  return data as GuestEvent | null;
+  return data ? normalizeGuestEvent(data as GuestEventRow) : null;
+}
+
+function normalizeGuestEvent(event: GuestEventRow): GuestEvent {
+  return {
+    ...event,
+    guest_access_code_enabled: Boolean(event.guest_access_code_enabled),
+    guest_access_code: event.guest_access_code ?? null,
+    guest_access_mode: normalizeGuestAccessMode(event.guest_access_mode),
+    moderation_mode: normalizeModerationMode(event.moderation_mode),
+  };
 }
 
 async function hasValidGuestAccess(event: GuestEvent) {

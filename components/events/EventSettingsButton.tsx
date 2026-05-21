@@ -3,7 +3,12 @@
 import { FormEvent, useState, useTransition } from "react";
 import { Settings, X } from "lucide-react";
 import { updateEventSettingsAction } from "@/features/events/actions";
-import type { GuestAccessMode, ModerationMode } from "@/lib/eventSettings";
+import {
+  normalizeGuestAccessMode,
+  normalizeModerationMode,
+  type GuestAccessMode,
+  type ModerationMode,
+} from "@/lib/eventSettings";
 import { Button } from "@/components/ui/Button";
 
 export function EventSettingsButton({
@@ -22,11 +27,25 @@ export function EventSettingsButton({
   const [isOpen, setIsOpen] = useState(false);
   const [isCodeEnabled, setIsCodeEnabled] = useState(guestAccessCodeEnabled);
   const [currentCode, setCurrentCode] = useState(guestAccessCode);
-  const [selectedAccessMode, setSelectedAccessMode] = useState<GuestAccessMode>(guestAccessMode);
-  const [selectedModerationMode, setSelectedModerationMode] = useState<ModerationMode>(moderationMode);
+  const [selectedAccessMode, setSelectedAccessMode] = useState<GuestAccessMode>(
+    normalizeGuestAccessMode(guestAccessMode),
+  );
+  const [selectedModerationMode, setSelectedModerationMode] = useState<ModerationMode>(
+    normalizeModerationMode(moderationMode),
+  );
   const [shouldRegenerateCode, setShouldRegenerateCode] = useState(false);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  function openModal() {
+    setIsCodeEnabled(Boolean(guestAccessCodeEnabled));
+    setCurrentCode(guestAccessCode ?? null);
+    setSelectedAccessMode(normalizeGuestAccessMode(guestAccessMode));
+    setSelectedModerationMode(normalizeModerationMode(moderationMode));
+    setShouldRegenerateCode(false);
+    setError("");
+    setIsOpen(true);
+  }
 
   function closeModal() {
     if (isPending) return;
@@ -62,7 +81,7 @@ export function EventSettingsButton({
       <button
         type="button"
         className="absolute right-5 top-5 inline-flex size-10 items-center justify-center rounded-xl border border-black/10 bg-white text-muted shadow-sm transition hover:border-action/30 hover:text-action"
-        onClick={() => setIsOpen(true)}
+        onClick={openModal}
         aria-label="Настройки мероприятия"
         title="Настройки мероприятия"
       >
@@ -188,7 +207,7 @@ export function EventSettingsButton({
                     checked={selectedModerationMode === "premoderation"}
                     onChange={() => setSelectedModerationMode("premoderation")}
                     title="Премодерация"
-                    description="Новые фото создаются скрытыми, ведущий вручную показывает их в dashboard."
+                    description="Ведущий вручную на этой странице отбирает какие фотографии показывать на экране"
                     disabled={isPending}
                   />
                 </div>

@@ -10,6 +10,10 @@ import {
   isGuestAccessMode,
   isModerationMode,
   isPastEventDate,
+  normalizeGuestAccessMode,
+  normalizeModerationMode,
+  type GuestAccessMode,
+  type ModerationMode,
 } from "@/lib/eventSettings";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import { createSlug } from "@/lib/utils";
@@ -34,8 +38,8 @@ export type EventSettingsResult = {
   settings?: {
     guestAccessCodeEnabled: boolean;
     guestAccessCode: string | null;
-    guestAccessMode: "upload_only" | "upload_view" | "upload_view_download";
-    moderationMode: "show_immediately" | "premoderation";
+    guestAccessMode: GuestAccessMode;
+    moderationMode: ModerationMode;
   };
 };
 
@@ -238,18 +242,20 @@ export async function updateEventSettingsAction(formData: FormData): Promise<Eve
   const guestAccessCodeEnabled = formData.get("guestAccessCodeEnabled") === "on";
   const shouldRegenerateAccessCode = formData.get("regenerateAccessCode") === "true";
   const submittedAccessCode = String(formData.get("guestAccessCode") || "").trim();
-  const guestAccessMode = String(formData.get("guestAccessMode") || "");
-  const moderationMode = String(formData.get("moderationMode") || "");
+  const submittedGuestAccessMode = String(formData.get("guestAccessMode") || "");
+  const submittedModerationMode = String(formData.get("moderationMode") || "");
+  const guestAccessMode = normalizeGuestAccessMode(submittedGuestAccessMode);
+  const moderationMode = normalizeModerationMode(submittedModerationMode);
 
   if (!eventId) {
     return { error: "Не удалось определить мероприятие" };
   }
 
-  if (!isGuestAccessMode(guestAccessMode)) {
+  if (submittedGuestAccessMode && !isGuestAccessMode(submittedGuestAccessMode)) {
     return { error: "Выберите режим доступа гостей" };
   }
 
-  if (!isModerationMode(moderationMode)) {
+  if (submittedModerationMode && !isModerationMode(submittedModerationMode)) {
     return { error: "Выберите режим модерации" };
   }
 
@@ -260,7 +266,7 @@ export async function updateEventSettingsAction(formData: FormData): Promise<Eve
   const supabase = await createServerSupabaseClient();
   const { data: currentEvent, error: loadError } = await supabase
     .from("events")
-    .select("slug,guest_access_code")
+    .select("slug")
     .eq("id", eventId)
     .eq("user_id", user.id)
     .single();
@@ -300,15 +306,15 @@ export async function updateEventSettingsAction(formData: FormData): Promise<Eve
   const settings = data as unknown as {
     guest_access_code_enabled: boolean;
     guest_access_code: string | null;
-    guest_access_mode: "upload_only" | "upload_view" | "upload_view_download";
-    moderation_mode: "show_immediately" | "premoderation";
+    guest_access_mode?: string | null;
+    moderation_mode?: string | null;
   };
   return {
     settings: {
       guestAccessCodeEnabled: settings.guest_access_code_enabled,
       guestAccessCode: settings.guest_access_code,
-      guestAccessMode: settings.guest_access_mode,
-      moderationMode: settings.moderation_mode,
+      guestAccessMode: normalizeGuestAccessMode(settings.guest_access_mode),
+      moderationMode: normalizeModerationMode(settings.moderation_mode),
     },
   };
 }
@@ -326,7 +332,7 @@ export async function verifyGuestAccessCodeAction(
   const supabase = await createServerSupabaseClient();
   const { data: event, error } = await supabase
     .from("events")
-    .select("slug,guest_access_code_enabled,guest_access_code")
+    .select("*")
     .eq("slug", slug)
     .maybeSingle();
 

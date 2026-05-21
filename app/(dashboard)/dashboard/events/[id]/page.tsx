@@ -11,7 +11,12 @@ import { EventSettingsButton } from "@/components/events/EventSettingsButton";
 import { requireUser } from "@/features/auth/queries";
 import { getEventById } from "@/features/events/queries";
 import { getEventPhotos } from "@/features/photos/queries";
-import { getTodayDateString, isPastEventDate } from "@/lib/eventSettings";
+import {
+  getTodayDateString,
+  isPastEventDate,
+  normalizeGuestAccessMode,
+  normalizeModerationMode,
+} from "@/lib/eventSettings";
 
 export default async function ManageEventPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -22,6 +27,8 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
   const liveUrl = `${baseUrl}/live/${event.slug}`;
   const today = getTodayDateString();
   const canEditDate = !isPastEventDate(event.event_date, today);
+  const guestAccessMode = normalizeGuestAccessMode(event.guest_access_mode);
+  const moderationMode = normalizeModerationMode(event.moderation_mode);
 
   return (
     <DashboardLayout email={user.email}>
@@ -38,10 +45,10 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
           <Card className="relative grid gap-6">
             <EventSettingsButton
               eventId={event.id}
-              guestAccessCodeEnabled={event.guest_access_code_enabled}
-              guestAccessCode={event.guest_access_code}
-              guestAccessMode={event.guest_access_mode}
-              moderationMode={event.moderation_mode}
+              guestAccessCodeEnabled={Boolean(event.guest_access_code_enabled)}
+              guestAccessCode={event.guest_access_code ?? null}
+              guestAccessMode={guestAccessMode}
+              moderationMode={moderationMode}
             />
             <div className="pr-12">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">Управление</p>

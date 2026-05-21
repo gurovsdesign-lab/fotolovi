@@ -7,7 +7,7 @@ import {
   MAX_UPLOAD_SIZE_BYTES,
   PHOTO_BUCKET,
 } from "@/lib/constants";
-import { createGuestAccessCookieName } from "@/lib/eventSettings";
+import { createGuestAccessCookieName, normalizeModerationMode } from "@/lib/eventSettings";
 import { createPublicSupabaseClient } from "@/lib/supabasePublic";
 import { getFileExtension } from "@/lib/utils";
 
@@ -74,7 +74,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   const supabase = createPublicSupabaseClient();
   const { data: event, error: eventError } = await supabase
     .from("events")
-    .select("id,slug,photo_limit,guest_access_code_enabled,guest_access_code,moderation_mode")
+    .select("*")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -92,7 +92,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     photo_limit: number;
     guest_access_code_enabled: boolean;
     guest_access_code: string | null;
-    moderation_mode: "show_immediately" | "premoderation";
+    moderation_mode?: string | null;
   } | null;
 
   if (!uploadEvent) {
@@ -161,7 +161,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
         event_id: uploadEvent.id,
         storage_path: storagePath,
         public_url: publicData.publicUrl,
-        is_hidden: uploadEvent.moderation_mode === "premoderation",
+        is_hidden: normalizeModerationMode(uploadEvent.moderation_mode) === "premoderation",
       } as never)
       .select("*")
       .single();
