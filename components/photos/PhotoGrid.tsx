@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Download, Loader2, X } from "lucide-react";
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Download, Loader2, X } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { deletePhotoAction, togglePhotoVisibilityAction } from "@/features/photos/actions";
 import { cn } from "@/lib/utils";
 import { PhotoCard } from "./PhotoCard";
 import type { Photo } from "@/types/photo";
@@ -20,14 +21,21 @@ export function PhotoGrid({
   eventId,
   eventTitle,
   canManage = false,
+  onPhotosChange,
 }: {
   photos: Photo[];
   eventId: string;
   eventTitle: string;
   canManage?: boolean;
+  onPhotosChange?: Dispatch<SetStateAction<Photo[]>>;
 }) {
-  const [previewPhoto, setPreviewPhoto] = useState<Photo | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [loadedPreviewUrls, setLoadedPreviewUrls] = useState<Set<string>>(() => new Set());
   const [singleDownloadId, setSingleDownloadId] = useState<string | null>(null);
+  const [pendingPhotoIds, setPendingPhotoIds] = useState<Set<string>>(() => new Set());
+  const [actionError, setActionError] = useState<string | null>(null);
+  const previewPhoto = previewIndex === null ? null : photos[previewIndex] ?? null;
+  const isPreviewLoaded = previewPhoto ? loadedPreviewUrls.has(previewPhoto.public_url) : false;
 
   useEffect(() => {
     if (!previewPhoto) return;
@@ -36,7 +44,15 @@ export function PhotoGrid({
     document.body.style.overflow = "hidden";
 
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPreviewPhoto(null);
+      if (event.key === "Escape") setPreviewIndex(null);
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        setPreviewIndex((current) => movePreviewIndex(current, photos.length, -1));
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        setPreviewIndex((current) => movePreviewIndex(current, photos.length, 1));
+      }
     };
 
     window.addEventListener("keydown", closeOnEscape);
@@ -45,7 +61,22 @@ export function PhotoGrid({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [previewPhoto]);
+  }, [photos.length, previewPhoto]);
+
+  useEffect(() => {
+    if (!previewPhoto || loadedPreviewUrls.has(previewPhoto.public_url)) return;
+
+    const image = new window.Image();
+    image.src = previewPhoto.public_url;
+    if (image.complete && image.naturalWidth > 0) {
+      setLoadedPreviewUrls((current) => new Set(current).add(previewPhoto.public_url));
+    }
+  }, [loadedPreviewUrls, previewPhoto]);
+
+  useEffect(() => {
+    if (previewIndex === null || previewIndex < photos.length) return;
+    setPreviewIndex(photos.length ? photos.length - 1 : null);
+  }, [photos.length, previewIndex]);
 
   if (!photos.length) {
     return (
@@ -71,48 +102,164 @@ export function PhotoGrid({
     }
   }
 
+  async function togglePhotoVisibility(photo: Photo) {
+    if (!onPhotosChange || pendingPhotoIds.has(photo.id)) return;
+
+    setActionError(null);
+    setPendingState(photo.id, true);
+    const nextIsHidden = !photo.is_hidden;
+
+    if (nextIsHidden) {
+      onPhotosChange((current) => current.filter((item) => item.id !== photo.id));
+    } else {
+      onPhotosChange((current) =>
+        sortPhotosByUploadDate(current.map((item) => (item.id === photo.id ? { ...item, is_hidden: false } : item))),
+      );
+    }
+
+    try {
+      const formData = new FormData();
+      formData.set("photoId", photo.id);
+      formData.set("eventId", eventId);
+      formData.set("isHidden", String(photo.is_hidden));
+      await togglePhotoVisibilityAction(formData);
+    } catch (error) {
+      console.error("Failed to toggle photo visibility optimistically", error);
+      setActionError("Не удалось обновить фото. Изменение отменено.");
+      onPhotosChange((current) => restorePhoto(current, photo));
+    } finally {
+      setPendingState(photo.id, false);
+    }
+  }
+
+  async function deletePhoto(photo: Photo) {
+    if (!onPhotosChange || pendingPhotoIds.has(photo.id)) return;
+
+    setActionError(null);
+    setPendingState(photo.id, true);
+    onPhotosChange((current) => current.filter((item) => item.id !== photo.id));
+
+    try {
+      const formData = new FormData();
+      formData.set("photoId", photo.id);
+      formData.set("eventId", eventId);
+      formData.set("storagePath", photo.storage_path);
+      await deletePhotoAction(formData);
+    } catch (error) {
+      console.error("Failed to delete photo optimistically", error);
+      setActionError("Не удалось удалить фото. Оно возвращено в галерею.");
+      onPhotosChange((current) => restorePhoto(current, photo));
+    } finally {
+      setPendingState(photo.id, false);
+    }
+  }
+
+  function setPendingState(photoId: string, isPending: boolean) {
+    setPendingPhotoIds((current) => {
+      const next = new Set(current);
+      if (isPending) {
+        next.add(photoId);
+      } else {
+        next.delete(photoId);
+      }
+      return next;
+    });
+  }
+
+  function showPreviousPhoto() {
+    setPreviewIndex((current) => movePreviewIndex(current, photos.length, -1));
+  }
+
+  function showNextPhoto() {
+    setPreviewIndex((current) => movePreviewIndex(current, photos.length, 1));
+  }
+
   return (
     <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {photos.map((photo) => (
+        {photos.map((photo, index) => (
           <PhotoCard
             key={photo.id}
             photo={photo}
-            eventId={eventId}
             canManage={canManage}
-            onPreview={() => setPreviewPhoto(photo)}
+            onPreview={() => setPreviewIndex(index)}
+            onDelete={deletePhoto}
+            onToggleVisibility={togglePhotoVisibility}
+            isActionPending={pendingPhotoIds.has(photo.id)}
           />
         ))}
       </div>
+
+      {actionError ? (
+        <div className="fixed bottom-5 left-1/2 z-[120] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-red-200 bg-white px-4 py-3 text-sm text-red-700 shadow-soft">
+          {actionError}
+        </div>
+      ) : null}
 
       {previewPhoto ? (
         <div
           className="fixed inset-0 z-[100] grid place-items-center bg-black/[0.88] px-4 py-[max(1rem,env(safe-area-inset-top))] text-white backdrop-blur-sm transition-opacity"
           role="dialog"
           aria-modal="true"
-          onClick={() => setPreviewPhoto(null)}
+          onClick={() => setPreviewIndex(null)}
         >
           <button
             type="button"
             className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-20 inline-flex size-11 items-center justify-center rounded-full bg-white/12 text-white backdrop-blur transition hover:bg-white/20"
             onClick={(event) => {
               event.stopPropagation();
-              setPreviewPhoto(null);
+              setPreviewIndex(null);
             }}
             aria-label="Закрыть фото"
           >
             <X className="size-5" />
           </button>
 
+          {photos.length > 1 ? (
+            <>
+              <button
+                type="button"
+                className="absolute left-3 top-1/2 z-20 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/12 text-white backdrop-blur transition hover:bg-white/20 sm:left-5"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  showPreviousPhoto();
+                }}
+                aria-label="Предыдущее фото"
+              >
+                <ChevronLeft className="size-6" />
+              </button>
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 z-20 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/12 text-white backdrop-blur transition hover:bg-white/20 sm:right-5"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  showNextPhoto();
+                }}
+                aria-label="Следующее фото"
+              >
+                <ChevronRight className="size-6" />
+              </button>
+            </>
+          ) : null}
+
           <figure
             className="grid max-h-full w-full max-w-5xl animate-[preview-in_180ms_ease-out] gap-4"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="grid max-h-[calc(100vh-9rem)] place-items-center overflow-hidden rounded-xl">
+              {!isPreviewLoaded ? (
+                <div className="grid h-[min(68vh,34rem)] w-[min(82vw,42rem)] place-items-center rounded-xl bg-white/10">
+                  <Loader2 className="size-7 animate-spin text-white/70" />
+                </div>
+              ) : null}
               <img
                 src={previewPhoto.public_url}
                 alt="Фото мероприятия"
-                className="max-h-[calc(100vh-9rem)] w-auto max-w-full rounded-xl object-contain shadow-2xl"
+                className={cn(
+                  "max-h-[calc(100vh-9rem)] w-auto max-w-full rounded-xl object-contain shadow-2xl",
+                  isPreviewLoaded ? "block" : "hidden",
+                )}
+                onLoad={() => setLoadedPreviewUrls((current) => new Set(current).add(previewPhoto.public_url))}
               />
             </div>
             <button
@@ -136,6 +283,27 @@ export function PhotoGrid({
       ) : null}
     </>
   );
+}
+
+function movePreviewIndex(current: number | null, total: number, direction: -1 | 1) {
+  if (current === null || total < 1) return current;
+  return (current + direction + total) % total;
+}
+
+function restorePhoto(photos: Photo[], photo: Photo) {
+  if (photos.some((item) => item.id === photo.id)) {
+    return sortPhotosByUploadDate(photos.map((item) => (item.id === photo.id ? photo : item)));
+  }
+
+  return sortPhotosByUploadDate([...photos, photo]);
+}
+
+function sortPhotosByUploadDate(photos: Photo[]) {
+  return [...photos].sort((first, second) => {
+    const firstTime = new Date(first.uploaded_at ?? 0).getTime();
+    const secondTime = new Date(second.uploaded_at ?? 0).getTime();
+    return secondTime - firstTime;
+  });
 }
 
 export function PhotoDownloadAllButton({

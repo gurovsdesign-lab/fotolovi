@@ -5,6 +5,7 @@ import {
   MAX_FILES_PER_UPLOAD,
   MAX_UPLOAD_REQUEST_FILE_BYTES,
   MAX_UPLOAD_SIZE_BYTES,
+  PAID_EVENT_PHOTO_LIMIT,
   PHOTO_BUCKET,
 } from "@/lib/constants";
 import { createGuestAccessCookieName, normalizeModerationMode } from "@/lib/eventSettings";
@@ -89,6 +90,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   const uploadEvent = event as {
     id: string;
     slug: string;
+    is_paid?: boolean | null;
     photo_limit: number;
     guest_access_code_enabled: boolean;
     guest_access_code: string | null;
@@ -98,6 +100,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   if (!uploadEvent) {
     return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
   }
+
+  const photoLimit = uploadEvent.is_paid ? PAID_EVENT_PHOTO_LIMIT : uploadEvent.photo_limit;
 
   if (uploadEvent.guest_access_code_enabled) {
     const cookieStore = await cookies();
@@ -123,13 +127,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     return NextResponse.json({ error: "Не удалось проверить лимит фото" }, { status: 500 });
   }
 
-  if ((count ?? 0) >= uploadEvent.photo_limit) {
+  if ((count ?? 0) >= photoLimit) {
     return NextResponse.json({ error: "Лимит фото для этого мероприятия уже достигнут" }, { status: 400 });
   }
 
-  if ((count ?? 0) + files.length > uploadEvent.photo_limit) {
+  if ((count ?? 0) + files.length > photoLimit) {
     return NextResponse.json(
-      { error: `Можно добавить ещё ${Math.max(0, uploadEvent.photo_limit - (count ?? 0))} фото` },
+      { error: `Можно добавить ещё ${Math.max(0, photoLimit - (count ?? 0))} фото` },
       { status: 400 },
     );
   }

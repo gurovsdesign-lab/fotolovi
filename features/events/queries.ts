@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { FREE_EVENT_PHOTO_LIMIT, PAID_EVENT_PHOTO_LIMIT } from "@/lib/constants";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import type { Event, EventWithPhotoCount } from "@/types/event";
 
@@ -21,7 +22,7 @@ export async function getUserEvents(userId: string): Promise<EventWithPhotoCount
         .eq("event_id", event.id);
 
       return {
-        ...event,
+        ...normalizeEventLimit(event),
         photos_count: count ?? 0,
       };
     }),
@@ -40,7 +41,7 @@ export async function getEventById(id: string, userId: string): Promise<Event> {
     .single();
 
   if (error || !data) notFound();
-  return data as any;
+  return normalizeEventLimit(data as any);
 }
 
 export async function getPublicEvent(slug: string): Promise<Event> {
@@ -48,5 +49,12 @@ export async function getPublicEvent(slug: string): Promise<Event> {
   const { data, error } = await supabase.from("events").select("*").eq("slug", slug).single();
 
   if (error || !data) notFound();
-  return data as any;
+  return normalizeEventLimit(data as any);
+}
+
+function normalizeEventLimit<T extends { is_paid: boolean | null; photo_limit: number | null }>(event: T): T {
+  return {
+    ...event,
+    photo_limit: event.is_paid ? PAID_EVENT_PHOTO_LIMIT : (event.photo_limit ?? FREE_EVENT_PHOTO_LIMIT),
+  };
 }

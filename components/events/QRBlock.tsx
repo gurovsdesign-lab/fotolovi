@@ -16,6 +16,7 @@ export function QRBlock({
   eventTitle: string;
 }) {
   const qrRef = useRef<HTMLCanvasElement | null>(null);
+  const fullscreenWindowRef = useRef<Window | null>(null);
   const [isLiveModalOpen, setIsLiveModalOpen] = useState(false);
 
   function downloadQrCode() {
@@ -32,17 +33,26 @@ export function QRBlock({
 
   function openLiveAsTab() {
     if (!liveUrl) return;
-    window.open(liveUrl, "_blank", "noopener,noreferrer");
+    fullscreenWindowRef.current?.blur();
+    const liveTab = window.open(liveUrl, "_blank");
+    if (liveTab) {
+      liveTab.opener = null;
+      liveTab.focus();
+    }
     setIsLiveModalOpen(false);
   }
 
   function openLiveFullscreen() {
     if (!liveUrl) return;
-    window.open(
+    fullscreenWindowRef.current = window.open(
       liveUrl,
-      "_blank",
+      "fotolovi-live-fullscreen",
       "popup=yes,fullscreen=yes,width=1440,height=900,menubar=no,toolbar=no,location=no,status=no",
     );
+    if (fullscreenWindowRef.current) {
+      fullscreenWindowRef.current.opener = null;
+      fullscreenWindowRef.current.focus();
+    }
     setIsLiveModalOpen(false);
   }
 

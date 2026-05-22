@@ -16,7 +16,7 @@ export function EventCard({ event }: { event: EventWithPhotoCount }) {
             <h3 className="mt-2 text-xl font-semibold text-ink">{event.title}</h3>
           </div>
           <span className="rounded-full bg-ivory px-3 py-1 text-xs text-muted">
-            {event.photo_limit} фото
+            Лимит: {event.photo_limit} фото
           </span>
         </div>
         <div className="mt-6 grid gap-3 text-sm text-muted">

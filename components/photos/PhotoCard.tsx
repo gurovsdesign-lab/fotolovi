@@ -1,19 +1,22 @@
 import Image from "next/image";
 import { Eye, EyeOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { deletePhotoAction, togglePhotoVisibilityAction } from "@/features/photos/actions";
 import type { Photo } from "@/types/photo";
 
 export function PhotoCard({
   photo,
-  eventId,
   canManage = false,
   onPreview,
+  onDelete,
+  onToggleVisibility,
+  isActionPending = false,
 }: {
   photo: Photo;
-  eventId: string;
   canManage?: boolean;
   onPreview?: () => void;
+  onDelete?: (photo: Photo) => void;
+  onToggleVisibility?: (photo: Photo) => void;
+  isActionPending?: boolean;
 }) {
   return (
     <div className="group overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
@@ -32,22 +35,26 @@ export function PhotoCard({
       </button>
       {canManage ? (
         <div className="flex gap-2 p-3">
-          <form action={togglePhotoVisibilityAction} className="flex-1">
-            <input type="hidden" name="photoId" value={photo.id} />
-            <input type="hidden" name="eventId" value={eventId} />
-            <input type="hidden" name="isHidden" value={String(photo.is_hidden)} />
-            <Button type="submit" variant="secondary" className="h-10 w-full px-3">
-              {photo.is_hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
-            </Button>
-          </form>
-          <form action={deletePhotoAction}>
-            <input type="hidden" name="photoId" value={photo.id} />
-            <input type="hidden" name="eventId" value={eventId} />
-            <input type="hidden" name="storagePath" value={photo.storage_path} />
-            <Button type="submit" variant="danger" className="h-10 px-3">
-              <Trash2 className="size-4" />
-            </Button>
-          </form>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-10 w-full flex-1 px-3"
+            disabled={isActionPending}
+            onClick={() => onToggleVisibility?.(photo)}
+            aria-label={photo.is_hidden ? "Показать фото" : "Скрыть фото"}
+          >
+            {photo.is_hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            className="h-10 px-3"
+            disabled={isActionPending}
+            onClick={() => onDelete?.(photo)}
+            aria-label="Удалить фото"
+          >
+            <Trash2 className="size-4" />
+          </Button>
         </div>
       ) : null}
     </div>

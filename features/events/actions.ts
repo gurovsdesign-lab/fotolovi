@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { FREE_EVENT_PHOTO_LIMIT } from "@/lib/constants";
+import { FREE_EVENT_PHOTO_LIMIT, PAID_EVENT_PHOTO_LIMIT } from "@/lib/constants";
 import {
   createGuestAccessCookieName,
   getTodayDateString,
@@ -90,7 +90,7 @@ export async function createEventAction(
       event_date: eventDate,
       slug: createSlug(title),
       is_paid: useCredit,
-      photo_limit: useCredit ? 1000 : FREE_EVENT_PHOTO_LIMIT,
+      photo_limit: useCredit ? PAID_EVENT_PHOTO_LIMIT : FREE_EVENT_PHOTO_LIMIT,
     } as any)
     .select("id")
     .single();
