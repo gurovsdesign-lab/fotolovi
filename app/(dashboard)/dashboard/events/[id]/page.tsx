@@ -79,12 +79,7 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
           <QRBlock guestUrl={guestUrl} liveUrl={liveUrl} eventTitle={event.title} />
         </section>
 
-        <EventGallery
-          photos={photos}
-          eventId={event.id}
-          eventTitle={event.title}
-          isPremoderation={moderationMode === "premoderation"}
-        />
+        <EventGallery photos={photos} eventId={event.id} eventTitle={event.title} />
       </div>
     </DashboardLayout>
   );

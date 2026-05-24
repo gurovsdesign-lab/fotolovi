@@ -108,14 +108,9 @@ export function PhotoGrid({
     setActionError(null);
     setPendingState(photo.id, true);
     const nextIsHidden = !photo.is_hidden;
-
-    if (nextIsHidden) {
-      onPhotosChange((current) => current.filter((item) => item.id !== photo.id));
-    } else {
-      onPhotosChange((current) =>
-        sortPhotosByUploadDate(current.map((item) => (item.id === photo.id ? { ...item, is_hidden: false } : item))),
-      );
-    }
+    onPhotosChange((current) =>
+      current.map((item) => (item.id === photo.id ? { ...item, is_hidden: nextIsHidden } : item)),
+    );
 
     try {
       const formData = new FormData();
