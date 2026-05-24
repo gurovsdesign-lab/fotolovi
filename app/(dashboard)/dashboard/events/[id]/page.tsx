@@ -8,11 +8,10 @@ import { DeleteEventButton } from "@/components/events/DeleteEventButton";
 import { EventDateEditor } from "@/components/events/EventDateEditor";
 import { EventTitleEditor } from "@/components/events/EventTitleEditor";
 import { EventSettingsButton } from "@/components/events/EventSettingsButton";
-import { EventStatusBadge } from "@/components/events/EventStatusBadge";
+import { EventTypeBadge } from "@/components/events/EventStatusBadge";
 import { requireUser } from "@/features/auth/queries";
 import { getEventById } from "@/features/events/queries";
 import { getEventPhotos } from "@/features/photos/queries";
-import { getEventStatus } from "@/lib/eventStatus";
 import {
   getTodayDateString,
   isPastEventDate,
@@ -31,7 +30,6 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
   const canEditDate = !isPastEventDate(event.event_date, today);
   const guestAccessMode = normalizeGuestAccessMode(event.guest_access_mode);
   const moderationMode = normalizeModerationMode(event.moderation_mode);
-  const eventStatus = getEventStatus(event.event_date, today);
 
   return (
     <DashboardLayout email={user.email}>
@@ -73,9 +71,9 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
                 <p className="mt-1 text-2xl font-semibold">{event.photo_limit}</p>
               </div>
               <div className="rounded-xl bg-ivory p-4">
-                <p className="text-sm text-muted">Статус</p>
+                <p className="text-sm text-muted">Тип</p>
                 <div className="mt-3">
-                  <EventStatusBadge status={eventStatus} descriptive />
+                  <EventTypeBadge isPaid={event.is_paid} />
                 </div>
               </div>
             </div>

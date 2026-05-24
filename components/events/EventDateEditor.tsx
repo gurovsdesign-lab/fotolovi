@@ -3,6 +3,8 @@
 import { FormEvent, useState, useTransition } from "react";
 import { CalendarDays, Pencil, X } from "lucide-react";
 import { updateEventDateAction } from "@/features/events/actions";
+import { EventStatusBadge } from "@/components/events/EventStatusBadge";
+import { getEventStatus } from "@/lib/eventStatus";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -23,6 +25,7 @@ export function EventDateEditor({
   const [error, setError] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const eventStatus = getEventStatus(currentDate, today);
 
   const openModal = () => {
     if (!canEdit) return;
@@ -61,13 +64,17 @@ export function EventDateEditor({
 
   return (
     <>
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-muted">
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 text-muted">
         <CalendarDays className="size-4" />
-        <span>{formatDate(currentDate)}</span>
+        <span className="inline-flex shrink-0 items-center gap-1.5">
+          <span>{formatDate(currentDate)}</span>
+          <span className="text-muted/60">•</span>
+          <EventStatusBadge status={eventStatus} />
+        </span>
         {canEdit ? (
           <button
             type="button"
-            className="inline-flex size-8 items-center justify-center rounded-full text-muted transition hover:bg-black/5 hover:text-action"
+            className="inline-flex size-7 items-center justify-center rounded-full text-muted transition hover:bg-black/5 hover:text-action"
             onClick={openModal}
             aria-label="Изменить дату мероприятия"
           >
