@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { PhotoDownloadAllButton, PhotoGrid } from "@/components/photos/PhotoGrid";
 import { Button } from "@/components/ui/Button";
-import type { Photo } from "@/types/photo";
+import type { DashboardPhoto, Photo } from "@/types/photo";
 
 export function EventGallery({
   photos,
@@ -17,9 +17,10 @@ export function EventGallery({
   eventTitle: string;
   allowDownloadAll?: boolean;
 }) {
-  const [displayPhotos, setDisplayPhotos] = useState(photos);
-  const visibleCount = displayPhotos.filter((photo) => !photo.is_hidden).length;
-  const hiddenCount = displayPhotos.length - visibleCount;
+  const [displayPhotos, setDisplayPhotos] = useState<DashboardPhoto[]>(photos);
+  const activePhotos = displayPhotos.filter((photo) => photo.dashboard_state !== "deleted");
+  const visibleCount = activePhotos.filter((photo) => !photo.is_hidden).length;
+  const hiddenCount = activePhotos.length - visibleCount;
   const latestUploadedAt = getLatestUploadedAt(photos);
 
   useEffect(() => {
@@ -41,7 +42,7 @@ export function EventGallery({
             Скрыто: {hiddenCount} фото
           </span>
           {allowDownloadAll ? (
-            <PhotoDownloadAllButton photos={displayPhotos} eventTitle={eventTitle} className="sm:items-end" />
+            <PhotoDownloadAllButton photos={activePhotos} eventTitle={eventTitle} className="sm:items-end" />
           ) : null}
         </div>
       </div>
@@ -103,9 +104,9 @@ function NewPhotosRefreshNotice({
   if (newPhotosCount < 1) return null;
 
   return (
-    <div className="fixed bottom-5 left-1/2 z-40 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center justify-between gap-3 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-ink shadow-soft">
+    <div className="fixed bottom-5 left-1/2 z-40 flex w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 flex-wrap items-center justify-between gap-3 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-ink shadow-soft sm:flex-nowrap">
       <span>Добавлено {newPhotosCount} новых фотографий</span>
-      <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => window.location.reload()}>
+      <Button type="button" variant="secondary" className="h-9 shrink-0 whitespace-nowrap px-4" onClick={() => window.location.reload()}>
         <RefreshCw className="size-4" />
         Обновить страницу
       </Button>

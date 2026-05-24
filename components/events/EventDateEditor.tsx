@@ -73,11 +73,7 @@ export function EventDateEditor({
           >
             <Pencil className="size-3.5" />
           </button>
-        ) : (
-          <span className="rounded-full bg-ivory px-3 py-1 text-xs text-muted">
-            Дата прошедшего мероприятия заблокирована
-          </span>
-        )}
+        ) : null}
       </div>
 
       {isOpen ? (

@@ -1,12 +1,12 @@
 "use client";
 
 import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Download, Loader2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Eye, EyeOff, Loader2, Trash2, X } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { deletePhotoAction, togglePhotoVisibilityAction } from "@/features/photos/actions";
 import { cn } from "@/lib/utils";
 import { PhotoCard } from "./PhotoCard";
-import type { Photo } from "@/types/photo";
+import type { DashboardPhoto, Photo } from "@/types/photo";
 
 type DownloadState =
   | { status: "idle" }
@@ -23,11 +23,11 @@ export function PhotoGrid({
   canManage = false,
   onPhotosChange,
 }: {
-  photos: Photo[];
+  photos: DashboardPhoto[];
   eventId: string;
   eventTitle: string;
   canManage?: boolean;
-  onPhotosChange?: Dispatch<SetStateAction<Photo[]>>;
+  onPhotosChange?: Dispatch<SetStateAction<DashboardPhoto[]>>;
 }) {
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [loadedPreviewUrls, setLoadedPreviewUrls] = useState<Set<string>>(() => new Set());
@@ -87,8 +87,8 @@ export function PhotoGrid({
     );
   }
 
-  async function downloadSinglePhoto(photo: Photo) {
-    if (singleDownloadId) return;
+  async function downloadSinglePhoto(photo: DashboardPhoto) {
+    if (singleDownloadId || isDeletedPhoto(photo)) return;
 
     setSingleDownloadId(photo.id);
 
@@ -102,8 +102,8 @@ export function PhotoGrid({
     }
   }
 
-  async function togglePhotoVisibility(photo: Photo) {
-    if (!onPhotosChange || pendingPhotoIds.has(photo.id)) return;
+  async function togglePhotoVisibility(photo: DashboardPhoto) {
+    if (!onPhotosChange || pendingPhotoIds.has(photo.id) || isDeletedPhoto(photo)) return;
 
     setActionError(null);
     setPendingState(photo.id, true);
@@ -113,11 +113,7 @@ export function PhotoGrid({
     );
 
     try {
-      const formData = new FormData();
-      formData.set("photoId", photo.id);
-      formData.set("eventId", eventId);
-      formData.set("isHidden", String(photo.is_hidden));
-      await togglePhotoVisibilityAction(formData);
+      await updatePhotoVisibility(photo.id, eventId, photo.is_hidden);
     } catch (error) {
       console.error("Failed to toggle photo visibility optimistically", error);
       setActionError("Не удалось обновить фото. Изменение отменено.");
@@ -127,22 +123,20 @@ export function PhotoGrid({
     }
   }
 
-  async function deletePhoto(photo: Photo) {
-    if (!onPhotosChange || pendingPhotoIds.has(photo.id)) return;
+  async function deletePhoto(photo: DashboardPhoto) {
+    if (!onPhotosChange || pendingPhotoIds.has(photo.id) || isDeletedPhoto(photo)) return;
 
     setActionError(null);
     setPendingState(photo.id, true);
-    onPhotosChange((current) => current.filter((item) => item.id !== photo.id));
+    onPhotosChange((current) =>
+      current.map((item) => (item.id === photo.id ? { ...item, dashboard_state: "deleted" } : item)),
+    );
 
     try {
-      const formData = new FormData();
-      formData.set("photoId", photo.id);
-      formData.set("eventId", eventId);
-      formData.set("storagePath", photo.storage_path);
-      await deletePhotoAction(formData);
+      await deletePhotoRequest(photo.id, eventId, photo.storage_path);
     } catch (error) {
       console.error("Failed to delete photo optimistically", error);
-      setActionError("Не удалось удалить фото. Оно возвращено в галерею.");
+      setActionError("Не удалось удалить фото. Изменение отменено.");
       onPhotosChange((current) => restorePhoto(current, photo));
     } finally {
       setPendingState(photo.id, false);
@@ -241,7 +235,7 @@ export function PhotoGrid({
             className="grid max-h-full w-full max-w-5xl animate-[preview-in_180ms_ease-out] gap-4"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="grid max-h-[calc(100vh-9rem)] place-items-center overflow-hidden rounded-xl">
+            <div className="relative grid max-h-[calc(100vh-11rem)] place-items-center overflow-hidden rounded-xl">
               {!isPreviewLoaded ? (
                 <div className="grid h-[min(68vh,34rem)] w-[min(82vw,42rem)] place-items-center rounded-xl bg-white/10">
                   <Loader2 className="size-7 animate-spin text-white/70" />
@@ -251,28 +245,70 @@ export function PhotoGrid({
                 src={previewPhoto.public_url}
                 alt="Фото мероприятия"
                 className={cn(
-                  "max-h-[calc(100vh-9rem)] w-auto max-w-full rounded-xl object-contain shadow-2xl",
+                  "max-h-[calc(100vh-11rem)] w-auto max-w-full rounded-xl object-contain shadow-2xl",
                   isPreviewLoaded ? "block" : "hidden",
+                  isDeletedPhoto(previewPhoto) ? "scale-[1.01] opacity-45 blur-[1px]" : "",
                 )}
                 onLoad={() => setLoadedPreviewUrls((current) => new Set(current).add(previewPhoto.public_url))}
               />
+              {previewPhoto.is_hidden && !isDeletedPhoto(previewPhoto) ? (
+                <div className="absolute inset-0 grid place-items-center rounded-xl bg-black/45 text-sm font-medium text-white">
+                  Скрыто
+                </div>
+              ) : null}
+              {isDeletedPhoto(previewPhoto) ? (
+                <div className="absolute inset-0 grid place-items-center rounded-xl bg-black/45 text-sm font-medium text-white">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-black/50 px-4 py-2">
+                    <Trash2 className="size-4" />
+                    Удалено
+                  </span>
+                </div>
+              ) : null}
             </div>
-            <button
-              type="button"
-              className={cn(
-                "mx-auto inline-flex h-12 min-w-44 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-medium text-ink shadow-soft transition hover:bg-white/90",
-                singleDownloadId ? "cursor-not-allowed opacity-70" : "",
-              )}
-              disabled={singleDownloadId !== null}
-              onClick={() => downloadSinglePhoto(previewPhoto)}
-            >
-              {singleDownloadId === previewPhoto.id ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Download className="size-4" />
-              )}
-              Скачать фото
-            </button>
+            <div className="mx-auto flex w-full max-w-xl flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex h-12 min-w-44 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-medium text-ink shadow-soft transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-55",
+                  singleDownloadId ? "cursor-not-allowed opacity-70" : "",
+                )}
+                disabled={singleDownloadId !== null || isDeletedPhoto(previewPhoto)}
+                onClick={() => downloadSinglePhoto(previewPhoto)}
+              >
+                {singleDownloadId === previewPhoto.id ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" />
+                )}
+                Скачать фото
+              </button>
+              {canManage ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-12 px-4"
+                    disabled={pendingPhotoIds.has(previewPhoto.id) || isDeletedPhoto(previewPhoto)}
+                    onClick={() => togglePhotoVisibility(previewPhoto)}
+                    aria-label={previewPhoto.is_hidden ? "Показать фото" : "Скрыть фото"}
+                  >
+                    {previewPhoto.is_hidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+                    {previewPhoto.is_hidden ? "Показать" : "Скрыть"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    className="h-12 px-4"
+                    disabled={pendingPhotoIds.has(previewPhoto.id) || isDeletedPhoto(previewPhoto)}
+                    onClick={() => deletePhoto(previewPhoto)}
+                    aria-label="Удалить фото"
+                  >
+                    <Trash2 className="size-4" />
+                    Удалить
+                  </Button>
+                </>
+              ) : null}
+            </div>
           </figure>
         </div>
       ) : null}
@@ -285,15 +321,19 @@ function movePreviewIndex(current: number | null, total: number, direction: -1 |
   return (current + direction + total) % total;
 }
 
-function restorePhoto(photos: Photo[], photo: Photo) {
+function restorePhoto(photos: DashboardPhoto[], photo: DashboardPhoto) {
   if (photos.some((item) => item.id === photo.id)) {
-    return sortPhotosByUploadDate(photos.map((item) => (item.id === photo.id ? photo : item)));
+    return sortPhotosByUploadDate(
+      photos.map((item) =>
+        item.id === photo.id ? { ...photo, dashboard_state: undefined } : item,
+      ),
+    );
   }
 
-  return sortPhotosByUploadDate([...photos, photo]);
+  return sortPhotosByUploadDate([...photos, { ...photo, dashboard_state: undefined }]);
 }
 
-function sortPhotosByUploadDate(photos: Photo[]) {
+function sortPhotosByUploadDate(photos: DashboardPhoto[]) {
   return [...photos].sort((first, second) => {
     const firstTime = new Date(first.uploaded_at ?? 0).getTime();
     const secondTime = new Date(second.uploaded_at ?? 0).getTime();
@@ -301,18 +341,46 @@ function sortPhotosByUploadDate(photos: Photo[]) {
   });
 }
 
+function isDeletedPhoto(photo: DashboardPhoto) {
+  return photo.dashboard_state === "deleted";
+}
+
+async function updatePhotoVisibility(photoId: string, eventId: string, isHidden: boolean) {
+  const response = await fetch(`/api/dashboard/photos/${photoId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ eventId, isHidden }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update photo visibility: ${response.status}`);
+  }
+}
+
+async function deletePhotoRequest(photoId: string, eventId: string, storagePath: string) {
+  const response = await fetch(`/api/dashboard/photos/${photoId}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ eventId, storagePath }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete photo: ${response.status}`);
+  }
+}
+
 export function PhotoDownloadAllButton({
   photos,
   eventTitle,
   className,
 }: {
-  photos: Photo[];
+  photos: DashboardPhoto[];
   eventTitle: string;
   className?: string;
 }) {
   const [downloadAllState, setDownloadAllState] = useState<DownloadState>({ status: "idle" });
   const downloadablePhotos = useMemo(
-    () => photos.filter((photo) => !photo.is_hidden),
+    () => photos.filter((photo) => !photo.is_hidden && !isDeletedPhoto(photo)),
     [photos],
   );
   const isDownloadingAll = downloadAllState.status === "loading";

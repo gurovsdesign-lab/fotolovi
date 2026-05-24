@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { CalendarDays, ImageIcon } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { EventStatusBadge } from "@/components/events/EventStatusBadge";
+import { getEventStatus } from "@/lib/eventStatus";
 import { formatDate } from "@/lib/utils";
 import type { EventWithPhotoCount } from "@/types/event";
 
 export function EventCard({ event }: { event: EventWithPhotoCount }) {
+  const eventStatus = getEventStatus(event.event_date);
+
   return (
     <Link href={`/dashboard/events/${event.id}`} className="block">
       <Card className="h-full transition hover:-translate-y-0.5 hover:border-action/20">
@@ -20,6 +24,7 @@ export function EventCard({ event }: { event: EventWithPhotoCount }) {
           </span>
         </div>
         <div className="mt-6 grid gap-3 text-sm text-muted">
+          <EventStatusBadge status={eventStatus} />
           <span className="inline-flex items-center gap-2">
             <CalendarDays className="size-4" />
             {formatDate(event.event_date)}
