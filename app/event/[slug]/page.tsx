@@ -98,7 +98,7 @@ export default async function GuestEventPage({ params }: { params: Promise<{ slu
           <section className="grid gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-2xl font-semibold text-ink">Общая галерея</h2>
+                <h2 className="text-2xl font-semibold text-ink">Альбом</h2>
                 <p className="mt-1 text-sm text-muted">{photos.length} фото</p>
               </div>
               {canDownloadAll ? (

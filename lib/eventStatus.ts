@@ -97,10 +97,6 @@ export function getLiveLifecycleMessage(lifecycle: EventLifecycle) {
     return `Мероприятие завершено. Вы можете загружать фотографии до ${formatDate(lifecycle.uploadDeadlineDate)} включительно, а фотографии будут храниться до ${formatDate(lifecycle.storageDeadlineDate)} включительно.`;
   }
 
-  if (lifecycle.status === "planned") {
-    return "Мероприятие ещё не началось. Live screen станет доступен в день мероприятия.";
-  }
-
   if (lifecycle.status === "storage") {
     return `Live screen уже завершён. Фотографии доступны для скачивания до ${formatDate(lifecycle.storageDeadlineDate)}.`;
   }
@@ -131,8 +127,8 @@ function getLifecyclePermissions(status: EventStatus): EventLifecycle["permissio
     canUpload: status === "current" || status === "recent",
     canViewGallery: status === "current" || status === "recent" || status === "storage",
     canDownload: status === "current" || status === "recent" || status === "storage",
-    canUseLiveScreen: status === "current" || status === "recent",
-    canShowLivePhotos: status === "current",
+    canUseLiveScreen: status === "planned" || status === "current" || status === "recent",
+    canShowLivePhotos: status === "planned" || status === "current",
   };
 }
 

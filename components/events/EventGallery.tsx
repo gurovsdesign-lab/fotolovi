@@ -31,12 +31,11 @@ export function EventGallery({
     <section className="grid gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">Галерея</p>
-          <h2 className="mt-2 text-2xl font-semibold text-ink">Фото гостей</h2>
+          <h2 className="text-2xl font-semibold text-ink">Альбом</h2>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-end">
           <span className="inline-flex h-11 items-center justify-center rounded-full bg-white px-4 text-sm text-muted shadow-sm">
-            На экране: {visibleCount} фото
+            Показано: {visibleCount} фото
           </span>
           <span className="inline-flex h-11 items-center justify-center rounded-full bg-white px-4 text-sm text-muted shadow-sm">
             Скрыто: {hiddenCount} фото
