@@ -166,6 +166,7 @@ export function LiveScreen({
         title={event.title}
         accessCode={guestAccessCode}
         explanatoryText={explanatoryText}
+        showPhotoHint={showPhotos}
       />
     );
   }

@@ -1,5 +1,6 @@
 import { LiveScreen } from "@/components/live/LiveScreen";
 import { getLiveScreenPhotos } from "@/features/live/queries";
+import { ensureCompletedEventPhotosCleanup } from "@/features/photos/cleanup";
 import { getEventLifecycle, getEventStatusLabel, getLiveLifecycleMessage } from "@/lib/eventStatus";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import { getBaseUrl } from "@/lib/utils";
@@ -18,6 +19,7 @@ export default async function LivePage({ params }: { params: Promise<{ slug: str
   }
 
   const lifecycle = getEventLifecycle(event.event_date);
+  await ensureCompletedEventPhotosCleanup(event, lifecycle);
   const lifecycleMessage = getLiveLifecycleMessage(lifecycle);
   const photos = lifecycle.permissions.canShowLivePhotos ? await getLiveScreenPhotos(event.id) : [];
   const guestUrl = `${getBaseUrl()}/event/${event.slug}`;

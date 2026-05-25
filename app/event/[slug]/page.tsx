@@ -13,6 +13,7 @@ import { getEventLifecycle, getGuestLifecycleMessage, type EventLifecycle } from
 import { createPublicSupabaseClient } from "@/lib/supabasePublic";
 import { formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
+import { ensureCompletedEventPhotosCleanup } from "@/features/photos/cleanup";
 import type { Photo } from "@/types/photo";
 import type { Database } from "@/types/database";
 
@@ -51,6 +52,12 @@ export default async function GuestEventPage({ params }: { params: Promise<{ slu
   }
 
   const lifecycle = getEventLifecycle(event.event_date);
+  await ensureCompletedEventPhotosCleanup(event, lifecycle);
+
+  if (lifecycle.status === "completed") {
+    return <UnavailableGuestEvent message={getGuestLifecycleMessage(lifecycle)} />;
+  }
+
   const lifecycleMessage = getGuestLifecycleMessage(lifecycle);
   const needsGuestAccess = lifecycle.permissions.canUpload || lifecycle.permissions.canViewGallery;
   const hasAccess = needsGuestAccess ? await hasValidGuestAccess(event) : true;
@@ -102,6 +109,17 @@ export default async function GuestEventPage({ params }: { params: Promise<{ slu
           </section>
         ) : null}
       </div>
+    </main>
+  );
+}
+
+function UnavailableGuestEvent({ message }: { message: string | null }) {
+  return (
+    <main className="grid min-h-screen place-items-center bg-ivory px-4 py-8 text-center">
+      <section className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-soft sm:p-8">
+        <h1 className="font-display text-4xl text-ink sm:text-5xl">Мероприятие завершено</h1>
+        {message ? <p className="mt-4 text-sm leading-6 text-muted">{message}</p> : null}
+      </section>
     </main>
   );
 }

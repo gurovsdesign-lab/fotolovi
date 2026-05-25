@@ -6,7 +6,15 @@ import { renameEventAction } from "@/features/events/actions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
-export function EventTitleEditor({ eventId, title }: { eventId: string; title: string }) {
+export function EventTitleEditor({
+  eventId,
+  title,
+  canEdit = true,
+}: {
+  eventId: string;
+  title: string;
+  canEdit?: boolean;
+}) {
   const [currentTitle, setCurrentTitle] = useState(title);
   const [draftTitle, setDraftTitle] = useState(title);
   const [error, setError] = useState("");
@@ -27,6 +35,7 @@ export function EventTitleEditor({ eventId, title }: { eventId: string; title: s
   }, [isOpen, isPending]);
 
   const openModal = () => {
+    if (!canEdit) return;
     setDraftTitle(currentTitle);
     setError("");
     setIsOpen(true);
@@ -65,14 +74,16 @@ export function EventTitleEditor({ eventId, title }: { eventId: string; title: s
     <>
       <div className="mt-3 flex min-w-0 items-center gap-2">
         <h1 className="min-w-0 break-words font-display text-4xl text-ink sm:text-5xl">{currentTitle}</h1>
-        <button
-          type="button"
-          className="inline-flex size-10 shrink-0 -translate-y-0.5 items-center justify-center rounded-full text-muted transition hover:bg-black/5 hover:text-action"
-          onClick={openModal}
-          aria-label="Переименовать мероприятие"
-        >
-          <Pencil className="size-4" />
-        </button>
+        {canEdit ? (
+          <button
+            type="button"
+            className="inline-flex size-10 shrink-0 -translate-y-0.5 items-center justify-center rounded-full text-muted transition hover:bg-black/5 hover:text-action"
+            onClick={openModal}
+            aria-label="Переименовать мероприятие"
+          >
+            <Pencil className="size-4" />
+          </button>
+        ) : null}
       </div>
 
       {isOpen ? (

@@ -7,11 +7,13 @@ export function LiveEmptyState({
   title,
   accessCode,
   explanatoryText,
+  showPhotoHint = true,
 }: {
   guestUrl: string;
   title: string;
   accessCode?: string | null;
   explanatoryText?: string | null;
+  showPhotoHint?: boolean;
 }) {
   return (
     <div className="relative grid min-h-screen place-items-center overflow-hidden bg-night px-6 text-white">
@@ -26,7 +28,9 @@ export function LiveEmptyState({
           {accessCode ? (
             <p className="mt-3 text-2xl font-semibold tracking-[0.18em] text-gold">{accessCode}</p>
           ) : null}
-          <p className="mt-3 text-lg text-white/68">Ваши фотографии появятся на экране</p>
+          {showPhotoHint ? (
+            <p className="mt-3 text-lg text-white/68">Ваши фотографии появятся на экране</p>
+          ) : null}
           {explanatoryText ? (
             <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-white/68">{explanatoryText}</p>
           ) : null}

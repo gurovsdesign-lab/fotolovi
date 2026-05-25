@@ -8,7 +8,7 @@ import { DeleteEventButton } from "@/components/events/DeleteEventButton";
 import { EventDateEditor } from "@/components/events/EventDateEditor";
 import { EventTitleEditor } from "@/components/events/EventTitleEditor";
 import { EventSettingsButton } from "@/components/events/EventSettingsButton";
-import { EventTypeBadge } from "@/components/events/EventStatusBadge";
+import { EventStatusBadge, EventTypeBadge } from "@/components/events/EventStatusBadge";
 import { requireUser } from "@/features/auth/queries";
 import { getEventById } from "@/features/events/queries";
 import { getEventPhotos } from "@/features/photos/queries";
@@ -18,19 +18,76 @@ import {
   normalizeModerationMode,
 } from "@/lib/eventSettings";
 import { getEventLifecycle, isEventDateEditable } from "@/lib/eventStatus";
+import { formatDate } from "@/lib/utils";
 
 export default async function ManageEventPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const [event, photos] = await Promise.all([getEventById(id, user.id), getEventPhotos(id)]);
+  const event = await getEventById(id, user.id);
+  const photos = await getEventPhotos(id);
   const baseUrl = "https://fotolovi.vercel.app";
   const guestUrl = `${baseUrl}/event/${event.slug}`;
-  const liveUrl = `${baseUrl}/live/${event.slug}`;
   const today = getTodayDateString();
-  const lifecycle = getEventLifecycle(event.event_date, today);
+  const lifecycle = getEventLifecycle(event.event_date);
   const canEditDate = isEventDateEditable(lifecycle);
   const guestAccessMode = normalizeGuestAccessMode(event.guest_access_mode);
   const moderationMode = normalizeModerationMode(event.moderation_mode);
+  const liveUrl = lifecycle.permissions.canUseLiveScreen ? `${baseUrl}/live/${event.slug}` : undefined;
+
+  if (lifecycle.status === "completed") {
+    return (
+      <DashboardLayout email={user.email}>
+        <div className="grid gap-8">
+          <Link
+            href="/dashboard"
+            className="inline-flex h-11 w-max items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-5 text-sm font-medium text-ink transition hover:border-action/30 hover:text-action focus:outline-none focus:ring-4 focus:ring-action/10"
+          >
+            <ArrowLeft className="size-4" />
+            Назад
+          </Link>
+
+          <Card className="grid gap-6">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">Управление</p>
+              <h1 className="mt-3 min-w-0 break-words font-display text-4xl text-ink sm:text-5xl">
+                {event.title}
+              </h1>
+              <div className="mt-3 flex flex-wrap items-center gap-1.5 text-muted">
+                <span>{formatDate(event.event_date)}</span>
+                <span className="text-muted/60">•</span>
+                <EventStatusBadge status={lifecycle.status} />
+              </div>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
+                Спасибо, что были с нами в эти моменты.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl bg-ivory p-4">
+                <p className="text-sm text-muted">Фото</p>
+                <p className="mt-1 text-2xl font-semibold">0</p>
+              </div>
+              <div className="rounded-xl bg-ivory p-4">
+                <p className="text-sm text-muted">Лимит</p>
+                <p className="mt-1 text-2xl font-semibold">{event.photo_limit}</p>
+              </div>
+              <div className="rounded-xl bg-ivory p-4">
+                <p className="text-sm text-muted">Тип</p>
+                <div className="mt-3">
+                  <EventTypeBadge isPaid={event.is_paid} />
+                </div>
+              </div>
+            </div>
+            <Link
+              href="/dashboard"
+              className="inline-flex h-11 w-max items-center justify-center rounded-xl bg-action px-5 text-sm font-medium text-white shadow-sm transition hover:bg-action/90 focus:outline-none focus:ring-4 focus:ring-action/20"
+            >
+              Создать новое мероприятие
+            </Link>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout email={user.email}>
@@ -54,7 +111,7 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
             />
             <div className="pr-12">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">Управление</p>
-              <EventTitleEditor eventId={event.id} title={event.title} />
+              <EventTitleEditor eventId={event.id} title={event.title} canEdit={canEditDate} />
               <EventDateEditor
                 eventId={event.id}
                 eventDate={event.event_date}
@@ -80,21 +137,20 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
             </div>
             <DeleteEventButton eventId={event.id} eventTitle={event.title} isPaid={event.is_paid} />
           </Card>
-          <QRBlock guestUrl={guestUrl} liveUrl={liveUrl} eventTitle={event.title} />
+          <QRBlock
+            guestUrl={guestUrl}
+            liveUrl={liveUrl}
+            eventTitle={event.title}
+            title={lifecycle.status === "storage" ? "Ссылка на альбом" : "Ссылка на загрузку фото"}
+          />
         </section>
 
-        {lifecycle.status === "completed" ? (
-          <section className="rounded-2xl bg-white p-6 text-sm leading-6 text-muted shadow-soft">
-            Срок хранения фотографий истёк. Галерея и скачивание для этого мероприятия недоступны.
-          </section>
-        ) : (
-          <EventGallery
-            photos={photos}
-            eventId={event.id}
-            eventTitle={event.title}
-            allowDownloadAll={lifecycle.permissions.canDownload}
-          />
-        )}
+        <EventGallery
+          photos={photos}
+          eventId={event.id}
+          eventTitle={event.title}
+          allowDownloadAll={lifecycle.permissions.canDownload}
+        />
       </div>
     </DashboardLayout>
   );

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getLiveScreenPhotos } from "@/features/live/queries";
+import { ensureCompletedEventPhotosCleanup } from "@/features/photos/cleanup";
 import {
   MAX_FILES_PER_UPLOAD,
   MAX_UPLOAD_REQUEST_FILE_BYTES,
@@ -40,7 +41,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     return createNoStorePhotosResponse([], 404);
   }
 
-  if (!getEventLifecycle(liveEvent.event_date).permissions.canShowLivePhotos) {
+  const lifecycle = getEventLifecycle(liveEvent.event_date);
+  await ensureCompletedEventPhotosCleanup(liveEvent, lifecycle);
+
+  if (!lifecycle.permissions.canShowLivePhotos) {
     return createNoStorePhotosResponse([]);
   }
 
@@ -107,7 +111,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
   }
 
-  if (!getEventLifecycle(uploadEvent.event_date).permissions.canUpload) {
+  const lifecycle = getEventLifecycle(uploadEvent.event_date);
+  await ensureCompletedEventPhotosCleanup(uploadEvent, lifecycle);
+
+  if (!lifecycle.permissions.canUpload) {
     return NextResponse.json({ error: "Загрузка фотографий для этого мероприятия недоступна" }, { status: 403 });
   }
 

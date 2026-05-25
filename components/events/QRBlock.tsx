@@ -10,10 +10,12 @@ export function QRBlock({
   guestUrl,
   liveUrl,
   eventTitle,
+  title = "Ссылка на загрузку фото",
 }: {
   guestUrl: string;
   liveUrl?: string;
   eventTitle: string;
+  title?: string;
 }) {
   const qrRef = useRef<HTMLCanvasElement | null>(null);
   const [isLiveModalOpen, setIsLiveModalOpen] = useState(false);
@@ -60,7 +62,7 @@ export function QRBlock({
         </button>
         <div className="pr-12">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">QR для гостей</p>
-          <h2 className="mt-2 text-xl font-semibold text-ink">Ссылка на загрузку фото</h2>
+          <h2 className="mt-2 text-xl font-semibold text-ink">{title}</h2>
         </div>
         <div className="w-fit rounded-2xl bg-white p-3 ring-1 ring-black/5">
           <QRCodeCanvas ref={qrRef} value={guestUrl} size={180} marginSize={2} bgColor="transparent" />

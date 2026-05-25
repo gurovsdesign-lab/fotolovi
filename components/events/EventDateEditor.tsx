@@ -25,7 +25,7 @@ export function EventDateEditor({
   const [error, setError] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const lifecycle = getEventLifecycle(currentDate, today);
+  const lifecycle = getEventLifecycle(currentDate);
   const lifecycleMessage = getDashboardLifecycleMessage(lifecycle);
 
   const openModal = () => {

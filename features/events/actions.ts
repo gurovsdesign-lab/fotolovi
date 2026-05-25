@@ -159,6 +159,23 @@ export async function renameEventAction(eventId: string, title: string): Promise
   }
 
   const supabase = await createServerSupabaseClient();
+  const { data: currentEvent, error: loadError } = await supabase
+    .from("events")
+    .select("event_date")
+    .eq("id", eventId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (loadError || !currentEvent) {
+    return { error: loadError?.message || "Не удалось найти мероприятие" };
+  }
+
+  const currentEventData = currentEvent as unknown as { event_date: string };
+
+  if (!isEventDateEditable(getEventLifecycle(currentEventData.event_date))) {
+    return { error: "Название можно менять только до завершения текущего мероприятия" };
+  }
+
   const { data, error } = await (supabase.from("events") as any)
     .update({ title: nextTitle } as any)
     .eq("id", eventId)
@@ -211,7 +228,7 @@ export async function updateEventDateAction(
 
   const currentEventData = currentEvent as unknown as { event_date: string; slug: string };
 
-  if (!isEventDateEditable(getEventLifecycle(currentEventData.event_date, today))) {
+  if (!isEventDateEditable(getEventLifecycle(currentEventData.event_date))) {
     return { error: "Дата прошедшего мероприятия заблокирована" };
   }
 
