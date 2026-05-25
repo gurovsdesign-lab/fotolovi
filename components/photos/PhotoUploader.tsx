@@ -185,7 +185,7 @@ export function PhotoUploader({
     <div className="rounded-2xl border border-dashed border-action/25 bg-white p-5 shadow-soft">
       <div className="grid gap-4">
         <div>
-          <h2 className="text-2xl font-semibold text-ink">Добавьте фото в общий альбом</h2>
+          <h2 className="text-2xl font-semibold text-ink">Добавьте фото в альбом</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
             {isPremoderated
               ? "Ваши снимки появятся после проверки ведущим."

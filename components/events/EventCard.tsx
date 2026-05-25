@@ -11,17 +11,17 @@ export function EventCard({ event }: { event: EventWithPhotoCount }) {
 
   return (
     <Link href={`/dashboard/events/${event.id}`} className="block">
-      <Card className="h-full transition hover:-translate-y-0.5 hover:border-action/20">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+      <Card className="flex h-full flex-col transition hover:-translate-y-0.5 hover:border-action/20">
+        <div className="grid gap-2">
+          <div className="flex items-start justify-between gap-4">
             <EventTypeBadge isPaid={event.is_paid} />
-            <h3 className="mt-2 text-xl font-semibold text-ink">{event.title}</h3>
+            <span className={`${eventPillClassName} shrink-0 whitespace-nowrap bg-ivory text-muted`}>
+              Лимит: {event.photo_limit} фото
+            </span>
           </div>
-          <span className={`${eventPillClassName} shrink-0 whitespace-nowrap bg-ivory text-muted`}>
-            Лимит: {event.photo_limit} фото
-          </span>
+          <h3 className="text-xl font-semibold text-ink">{event.title}</h3>
         </div>
-        <div className="mt-6 grid gap-3 text-sm text-muted">
+        <div className="mt-auto grid gap-3 pt-6 text-sm text-muted">
           <span className="inline-flex flex-wrap items-center gap-2">
             <CalendarDays className="size-4" />
             {formatDate(event.event_date)}

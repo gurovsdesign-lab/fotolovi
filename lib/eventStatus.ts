@@ -90,7 +90,7 @@ export function getDashboardLifecycleMessage(lifecycle: EventLifecycle) {
 
 export function getGuestLifecycleMessage(lifecycle: EventLifecycle) {
   if (lifecycle.status === "planned") {
-    return "Мероприятие ещё не началось. Загрузка, просмотр и скачивание будут доступны в день мероприятия.";
+    return null;
   }
 
   return getDashboardLifecycleMessage(lifecycle);
