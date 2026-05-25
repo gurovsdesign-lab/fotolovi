@@ -17,7 +17,7 @@ import {
   normalizeGuestAccessMode,
   normalizeModerationMode,
 } from "@/lib/eventSettings";
-import { getEventLifecycle, isEventDateEditable } from "@/lib/eventStatus";
+import { getDashboardLifecycleMessage, getEventLifecycle, isEventDateEditable } from "@/lib/eventStatus";
 import { formatDate } from "@/lib/utils";
 
 export default async function ManageEventPage({ params }: { params: Promise<{ id: string }> }) {
@@ -29,6 +29,7 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
   const guestUrl = `${baseUrl}/event/${event.slug}`;
   const today = getTodayDateString();
   const lifecycle = getEventLifecycle(event.event_date);
+  const lifecycleMessage = getDashboardLifecycleMessage(lifecycle);
   const canEditDate = isEventDateEditable(lifecycle);
   const guestAccessMode = normalizeGuestAccessMode(event.guest_access_mode);
   const moderationMode = normalizeModerationMode(event.moderation_mode);
@@ -57,9 +58,9 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
                 <span className="text-muted/60">•</span>
                 <EventStatusBadge status={lifecycle.status} />
               </div>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-                Спасибо, что были с нами в эти моменты.
-              </p>
+              {lifecycleMessage ? (
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">{lifecycleMessage}</p>
+              ) : null}
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl bg-ivory p-4">
@@ -77,6 +78,7 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
                 </div>
               </div>
             </div>
+            <p className="text-sm leading-6 text-muted">Спасибо, что были с нами в эти моменты.</p>
             <Link
               href="/dashboard"
               className="inline-flex h-11 w-max items-center justify-center rounded-xl bg-action px-5 text-sm font-medium text-white shadow-sm transition hover:bg-action/90 focus:outline-none focus:ring-4 focus:ring-action/20"

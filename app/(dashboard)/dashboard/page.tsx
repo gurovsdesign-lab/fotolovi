@@ -23,7 +23,7 @@ export default async function DashboardPage() {
             </p>
           </div>
           <div className="rounded-2xl bg-white px-5 py-4 shadow-soft">
-            <p className="text-sm text-muted">Доступно credits</p>
+            <p className="text-xs font-medium tracking-[0.18em] text-gold">Доступно PREMIUM мероприятий</p>
             <p className="mt-1 text-3xl font-semibold text-ink">{credits}</p>
           </div>
         </section>

@@ -69,6 +69,10 @@ export function getDashboardLifecycleMessage(lifecycle: EventLifecycle) {
     return `Мероприятие ещё не началось. Показ фотографий на экране будет доступен до ${formatDate(lifecycle.livePhotosDeadlineDate)} 10:00 по МСК. Загружать фотографии можно до ${formatDate(lifecycle.uploadDeadlineDate)} включительно, а фотографии будут храниться до ${formatDate(lifecycle.storageDeadlineDate)} включительно.`;
   }
 
+  if (lifecycle.status === "current") {
+    return `Мероприятие идёт. Показ фотографий на экране будет доступен до ${formatDate(lifecycle.livePhotosDeadlineDate)} 10:00 по МСК. Загружать фотографии можно до ${formatDate(lifecycle.uploadDeadlineDate)} включительно, а фотографии будут храниться до ${formatDate(lifecycle.storageDeadlineDate)} включительно.`;
+  }
+
   if (lifecycle.status === "recent") {
     return `Мероприятие завершено. Загружать фотографии можно до ${formatDate(lifecycle.uploadDeadlineDate)} включительно, а фотографии будут храниться до ${formatDate(lifecycle.storageDeadlineDate)} включительно.`;
   }
@@ -124,9 +128,9 @@ function getStatusFromMoscowTime(daysAfterEvent: number, hour: number): EventSta
 
 function getLifecyclePermissions(status: EventStatus): EventLifecycle["permissions"] {
   return {
-    canUpload: status === "current" || status === "recent",
-    canViewGallery: status === "current" || status === "recent" || status === "storage",
-    canDownload: status === "current" || status === "recent" || status === "storage",
+    canUpload: status === "planned" || status === "current" || status === "recent",
+    canViewGallery: status === "planned" || status === "current" || status === "recent" || status === "storage",
+    canDownload: status === "planned" || status === "current" || status === "recent" || status === "storage",
     canUseLiveScreen: status === "planned" || status === "current" || status === "recent",
     canShowLivePhotos: status === "planned" || status === "current",
   };

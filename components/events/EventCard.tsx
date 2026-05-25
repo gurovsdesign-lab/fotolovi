@@ -17,7 +17,7 @@ export function EventCard({ event }: { event: EventWithPhotoCount }) {
             <EventTypeBadge isPaid={event.is_paid} />
             <h3 className="mt-2 text-xl font-semibold text-ink">{event.title}</h3>
           </div>
-          <span className={`${eventPillClassName} bg-ivory text-muted`}>
+          <span className={`${eventPillClassName} shrink-0 whitespace-nowrap bg-ivory text-muted`}>
             Лимит: {event.photo_limit} фото
           </span>
         </div>
