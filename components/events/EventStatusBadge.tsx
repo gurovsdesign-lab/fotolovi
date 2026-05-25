@@ -20,7 +20,7 @@ export function EventStatusBadge({
         eventPillClassName,
         status === "current" && "bg-action text-white shadow-sm",
         status === "planned" && "bg-ivory text-ink",
-        status === "past" && "bg-ivory text-muted",
+        (status === "recent" || status === "storage" || status === "completed") && "bg-ivory text-muted",
       )}
     >
       {descriptive ? getEventStatusDescription(status) : getEventStatusLabel(status)}

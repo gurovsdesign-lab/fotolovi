@@ -43,10 +43,6 @@ export function getTodayDateString(timeZone = APP_TIME_ZONE) {
   return `${year}-${month}-${day}`;
 }
 
-export function isPastEventDate(eventDate: string, today = getTodayDateString()) {
-  return eventDate < today;
-}
-
 export function createGuestAccessCookieName(slug: string) {
   const safeSlug = slug.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 90);
   return `fotolovi_guest_${safeSlug}`;

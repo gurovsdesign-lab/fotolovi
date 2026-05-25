@@ -9,12 +9,12 @@ import {
   getTodayDateString,
   isGuestAccessMode,
   isModerationMode,
-  isPastEventDate,
   normalizeGuestAccessMode,
   normalizeModerationMode,
   type GuestAccessMode,
   type ModerationMode,
 } from "@/lib/eventSettings";
+import { getEventLifecycle, isEventDateEditable } from "@/lib/eventStatus";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 import { createSlug } from "@/lib/utils";
 import { requireUser } from "@/features/auth/queries";
@@ -211,7 +211,7 @@ export async function updateEventDateAction(
 
   const currentEventData = currentEvent as unknown as { event_date: string; slug: string };
 
-  if (isPastEventDate(currentEventData.event_date, today)) {
+  if (!isEventDateEditable(getEventLifecycle(currentEventData.event_date, today))) {
     return { error: "Дата прошедшего мероприятия заблокирована" };
   }
 

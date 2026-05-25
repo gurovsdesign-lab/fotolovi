@@ -9,6 +9,7 @@ import {
   PHOTO_BUCKET,
 } from "@/lib/constants";
 import { createGuestAccessCookieName, normalizeModerationMode } from "@/lib/eventSettings";
+import { getEventLifecycle } from "@/lib/eventStatus";
 import { createPublicSupabaseClient } from "@/lib/supabasePublic";
 import { getFileExtension } from "@/lib/utils";
 
@@ -21,7 +22,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   const supabase = createPublicSupabaseClient();
   const { data: event, error } = await supabase
     .from("events")
-    .select("id")
+    .select("id,event_date")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -33,10 +34,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     return createNoStorePhotosResponse([]);
   }
 
-  const liveEvent = event as { id: string } | null;
+  const liveEvent = event as { id: string; event_date: string } | null;
 
   if (!liveEvent) {
     return createNoStorePhotosResponse([], 404);
+  }
+
+  if (!getEventLifecycle(liveEvent.event_date).permissions.canShowLivePhotos) {
+    return createNoStorePhotosResponse([]);
   }
 
   const photos = await getLiveScreenPhotos(liveEvent.id);
@@ -90,6 +95,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
   const uploadEvent = event as {
     id: string;
     slug: string;
+    event_date: string;
     is_paid?: boolean | null;
     photo_limit: number;
     guest_access_code_enabled: boolean;
@@ -99,6 +105,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
 
   if (!uploadEvent) {
     return NextResponse.json({ error: "Мероприятие не найдено" }, { status: 404 });
+  }
+
+  if (!getEventLifecycle(uploadEvent.event_date).permissions.canUpload) {
+    return NextResponse.json({ error: "Загрузка фотографий для этого мероприятия недоступна" }, { status: 403 });
   }
 
   const photoLimit = uploadEvent.is_paid ? PAID_EVENT_PHOTO_LIMIT : uploadEvent.photo_limit;

@@ -62,10 +62,14 @@ export function LiveScreen({
   event,
   initialPhotos,
   guestUrl,
+  showPhotos = true,
+  explanatoryText,
 }: {
   event: LiveScreenEvent;
   initialPhotos: LiveScreenPhoto[];
   guestUrl: string;
+  showPhotos?: boolean;
+  explanatoryText?: string | null;
 }) {
   const [photos, setPhotos] = useState(initialPhotos);
   const [centerPhotoIndex, setCenterPhotoIndex] = useState(0);
@@ -76,6 +80,8 @@ export function LiveScreen({
   const [isIncomingCenterPhotoReady, setIsIncomingCenterPhotoReady] = useState(false);
 
   useEffect(() => {
+    if (!showPhotos) return;
+
     const fetchPhotos = async () => {
       const response = await fetch(`/api/events/${event.slug}/photos?t=${Date.now()}`, {
         cache: "no-store",
@@ -88,9 +94,9 @@ export function LiveScreen({
     void fetchPhotos();
     const refresh = window.setInterval(fetchPhotos, LIVE_REFRESH_MS);
     return () => window.clearInterval(refresh);
-  }, [event.slug]);
+  }, [event.slug, showPhotos]);
 
-  const visiblePhotos = useMemo(() => photos, [photos]);
+  const visiblePhotos = useMemo(() => (showPhotos ? photos : []), [photos, showPhotos]);
   const centerPhoto = visiblePhotos.length
     ? visiblePhotos[centerPhotoIndex % visiblePhotos.length]
     : null;
@@ -154,7 +160,14 @@ export function LiveScreen({
   const guestAccessCode = event.guest_access_code_enabled ? event.guest_access_code : null;
 
   if (!visiblePhotos.length || !centerPhoto || !displayedCenterPhoto) {
-    return <LiveEmptyState guestUrl={guestUrl} title={event.title} accessCode={guestAccessCode} />;
+    return (
+      <LiveEmptyState
+        guestUrl={guestUrl}
+        title={event.title}
+        accessCode={guestAccessCode}
+        explanatoryText={explanatoryText}
+      />
+    );
   }
 
   return (

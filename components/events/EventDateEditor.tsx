@@ -4,7 +4,7 @@ import { FormEvent, useState, useTransition } from "react";
 import { CalendarDays, Pencil, X } from "lucide-react";
 import { updateEventDateAction } from "@/features/events/actions";
 import { EventStatusBadge } from "@/components/events/EventStatusBadge";
-import { getEventStatus } from "@/lib/eventStatus";
+import { getDashboardLifecycleMessage, getEventLifecycle } from "@/lib/eventStatus";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -25,7 +25,8 @@ export function EventDateEditor({
   const [error, setError] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const eventStatus = getEventStatus(currentDate, today);
+  const lifecycle = getEventLifecycle(currentDate, today);
+  const lifecycleMessage = getDashboardLifecycleMessage(lifecycle);
 
   const openModal = () => {
     if (!canEdit) return;
@@ -69,7 +70,7 @@ export function EventDateEditor({
         <span className="inline-flex shrink-0 items-center gap-1.5">
           <span>{formatDate(currentDate)}</span>
           <span className="text-muted/60">•</span>
-          <EventStatusBadge status={eventStatus} />
+          <EventStatusBadge status={lifecycle.status} />
         </span>
         {canEdit ? (
           <button
@@ -82,6 +83,9 @@ export function EventDateEditor({
           </button>
         ) : null}
       </div>
+      {lifecycleMessage ? (
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">{lifecycleMessage}</p>
+      ) : null}
 
       {isOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">

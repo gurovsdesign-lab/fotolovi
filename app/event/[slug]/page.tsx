@@ -9,6 +9,7 @@ import {
   type GuestAccessMode,
   type ModerationMode,
 } from "@/lib/eventSettings";
+import { getEventLifecycle, getGuestLifecycleMessage, type EventLifecycle } from "@/lib/eventStatus";
 import { createPublicSupabaseClient } from "@/lib/supabasePublic";
 import { formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -49,12 +50,16 @@ export default async function GuestEventPage({ params }: { params: Promise<{ slu
     notFound();
   }
 
-  const hasAccess = await hasValidGuestAccess(event);
-  const canViewGallery = event.guest_access_mode !== "upload_only";
-  const canDownloadAll = event.guest_access_mode === "upload_view_download";
+  const lifecycle = getEventLifecycle(event.event_date);
+  const lifecycleMessage = getGuestLifecycleMessage(lifecycle);
+  const needsGuestAccess = lifecycle.permissions.canUpload || lifecycle.permissions.canViewGallery;
+  const hasAccess = needsGuestAccess ? await hasValidGuestAccess(event) : true;
+  const canUpload = hasAccess && lifecycle.permissions.canUpload;
+  const canViewGallery = hasAccess && canGuestViewGallery(event.guest_access_mode, lifecycle);
+  const canDownloadAll = hasAccess && canGuestDownloadAll(event.guest_access_mode, lifecycle);
   const [photos, count] = await Promise.all([
     hasAccess && canViewGallery ? getGuestEventPhotos(event.id) : Promise.resolve([]),
-    hasAccess ? getGuestPhotoCount(event.id) : Promise.resolve(0),
+    canUpload ? getGuestPhotoCount(event.id) : Promise.resolve(0),
   ]);
 
   return (
@@ -68,7 +73,11 @@ export default async function GuestEventPage({ params }: { params: Promise<{ slu
           <p className="mt-3 text-muted">{formatDate(event.event_date)}</p>
         </section>
 
-        {hasAccess ? (
+        {lifecycleMessage ? <GuestLifecycleNotice message={lifecycleMessage} /> : null}
+
+        {!hasAccess ? (
+          <GuestAccessGate slug={event.slug} />
+        ) : canUpload ? (
           <PhotoUploader
             eventId={event.id}
             eventSlug={event.slug}
@@ -76,9 +85,7 @@ export default async function GuestEventPage({ params }: { params: Promise<{ slu
             currentCount={count}
             isPremoderated={event.moderation_mode === "premoderation"}
           />
-        ) : (
-          <GuestAccessGate slug={event.slug} />
-        )}
+        ) : null}
 
         {hasAccess && canViewGallery ? (
           <section className="grid gap-4">
@@ -97,6 +104,26 @@ export default async function GuestEventPage({ params }: { params: Promise<{ slu
       </div>
     </main>
   );
+}
+
+function GuestLifecycleNotice({ message }: { message: string }) {
+  return (
+    <section className="rounded-2xl bg-white p-5 text-sm leading-6 text-muted shadow-soft">
+      {message}
+    </section>
+  );
+}
+
+function canGuestViewGallery(accessMode: GuestAccessMode, lifecycle: EventLifecycle) {
+  if (!lifecycle.permissions.canViewGallery) return false;
+  if (lifecycle.status === "storage") return true;
+  return accessMode !== "upload_only";
+}
+
+function canGuestDownloadAll(accessMode: GuestAccessMode, lifecycle: EventLifecycle) {
+  if (!lifecycle.permissions.canDownload) return false;
+  if (lifecycle.status === "storage") return true;
+  return accessMode === "upload_view_download";
 }
 
 async function getGuestEventBySlug(slug: string): Promise<GuestEvent | null> {

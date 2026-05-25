@@ -6,10 +6,12 @@ export function LiveEmptyState({
   guestUrl,
   title,
   accessCode,
+  explanatoryText,
 }: {
   guestUrl: string;
   title: string;
   accessCode?: string | null;
+  explanatoryText?: string | null;
 }) {
   return (
     <div className="relative grid min-h-screen place-items-center overflow-hidden bg-night px-6 text-white">
@@ -25,6 +27,9 @@ export function LiveEmptyState({
             <p className="mt-3 text-2xl font-semibold tracking-[0.18em] text-gold">{accessCode}</p>
           ) : null}
           <p className="mt-3 text-lg text-white/68">Ваши фотографии появятся на экране</p>
+          {explanatoryText ? (
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-white/68">{explanatoryText}</p>
+          ) : null}
         </div>
       </div>
     </div>

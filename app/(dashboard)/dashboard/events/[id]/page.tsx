@@ -14,10 +14,10 @@ import { getEventById } from "@/features/events/queries";
 import { getEventPhotos } from "@/features/photos/queries";
 import {
   getTodayDateString,
-  isPastEventDate,
   normalizeGuestAccessMode,
   normalizeModerationMode,
 } from "@/lib/eventSettings";
+import { getEventLifecycle, isEventDateEditable } from "@/lib/eventStatus";
 
 export default async function ManageEventPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -27,7 +27,8 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
   const guestUrl = `${baseUrl}/event/${event.slug}`;
   const liveUrl = `${baseUrl}/live/${event.slug}`;
   const today = getTodayDateString();
-  const canEditDate = !isPastEventDate(event.event_date, today);
+  const lifecycle = getEventLifecycle(event.event_date, today);
+  const canEditDate = isEventDateEditable(lifecycle);
   const guestAccessMode = normalizeGuestAccessMode(event.guest_access_mode);
   const moderationMode = normalizeModerationMode(event.moderation_mode);
 
@@ -82,7 +83,18 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
           <QRBlock guestUrl={guestUrl} liveUrl={liveUrl} eventTitle={event.title} />
         </section>
 
-        <EventGallery photos={photos} eventId={event.id} eventTitle={event.title} />
+        {lifecycle.status === "completed" ? (
+          <section className="rounded-2xl bg-white p-6 text-sm leading-6 text-muted shadow-soft">
+            Срок хранения фотографий истёк. Галерея и скачивание для этого мероприятия недоступны.
+          </section>
+        ) : (
+          <EventGallery
+            photos={photos}
+            eventId={event.id}
+            eventTitle={event.title}
+            allowDownloadAll={lifecycle.permissions.canDownload}
+          />
+        )}
       </div>
     </DashboardLayout>
   );
