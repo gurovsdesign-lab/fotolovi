@@ -91,10 +91,28 @@ create table if not exists public.credit_transactions (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.premium_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  package_id text not null,
+  package_events integer not null check (package_events > 0),
+  package_total_price integer,
+  contact text not null,
+  preferred_communication text not null,
+  comment text,
+  status text not null default 'pending' check (status in ('pending', 'fulfilled', 'canceled')),
+  processed_at timestamptz,
+  processed_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create index if not exists events_user_id_idx on public.events(user_id);
 create index if not exists events_slug_idx on public.events(slug);
 create index if not exists photos_event_id_idx on public.photos(event_id);
 create index if not exists credits_user_id_idx on public.credits(user_id);
+create index if not exists premium_requests_user_id_idx on public.premium_requests(user_id);
+create index if not exists premium_requests_status_created_at_idx on public.premium_requests(status, created_at desc);
 
 create or replace function public.touch_updated_at()
 returns trigger
@@ -114,6 +132,11 @@ for each row execute function public.touch_updated_at();
 drop trigger if exists credits_touch_updated_at on public.credits;
 create trigger credits_touch_updated_at
 before update on public.credits
+for each row execute function public.touch_updated_at();
+
+drop trigger if exists premium_requests_touch_updated_at on public.premium_requests;
+create trigger premium_requests_touch_updated_at
+before update on public.premium_requests
 for each row execute function public.touch_updated_at();
 
 create or replace function public.handle_new_user()
@@ -184,11 +207,13 @@ alter table public.credits enable row level security;
 alter table public.events enable row level security;
 alter table public.photos enable row level security;
 alter table public.credit_transactions enable row level security;
+alter table public.premium_requests enable row level security;
 
 grant usage on schema public to anon, authenticated;
 grant select on table public.profiles to authenticated;
 grant select, insert, update on table public.credits to authenticated;
 grant select, insert on table public.credit_transactions to authenticated;
+grant select, insert, update on table public.premium_requests to authenticated;
 grant select on table public.events to anon, authenticated;
 grant select, insert on table public.photos to anon, authenticated;
 grant update, delete on table public.photos to authenticated;
@@ -196,6 +221,7 @@ grant usage on schema public to service_role;
 grant select on table public.profiles to service_role;
 grant select, insert, update on table public.credits to service_role;
 grant select, insert on table public.credit_transactions to service_role;
+grant select, insert, update on table public.premium_requests to service_role;
 grant select on table public.events to service_role;
 grant select, delete on table public.photos to service_role;
 revoke execute on function public.debit_current_user_credit(text) from public;
@@ -232,6 +258,22 @@ drop policy if exists "transactions authenticated insert own" on public.credit_t
 create policy "transactions authenticated insert own"
 on public.credit_transactions for insert
 with check (user_id = auth.uid() or public.is_admin());
+
+drop policy if exists "premium requests own or admin read" on public.premium_requests;
+create policy "premium requests own or admin read"
+on public.premium_requests for select
+using (user_id = auth.uid() or public.is_admin());
+
+drop policy if exists "premium requests owner insert" on public.premium_requests;
+create policy "premium requests owner insert"
+on public.premium_requests for insert
+with check (user_id = auth.uid());
+
+drop policy if exists "premium requests admin update" on public.premium_requests;
+create policy "premium requests admin update"
+on public.premium_requests for update
+using (public.is_admin())
+with check (public.is_admin());
 
 drop policy if exists "events owner insert" on public.events;
 create policy "events owner insert"

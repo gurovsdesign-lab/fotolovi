@@ -126,6 +126,44 @@ export type Database = {
         };
         Update: never;
       };
+      premium_requests: {
+        Row: {
+          id: string;
+          user_id: string;
+          package_id: string;
+          package_events: number;
+          package_total_price: number | null;
+          contact: string;
+          preferred_communication: string;
+          comment: string | null;
+          status: "pending" | "fulfilled" | "canceled";
+          processed_at: string | null;
+          processed_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          package_id: string;
+          package_events: number;
+          package_total_price?: number | null;
+          contact: string;
+          preferred_communication: string;
+          comment?: string | null;
+          status?: "pending" | "fulfilled" | "canceled";
+          processed_at?: string | null;
+          processed_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          status?: "pending" | "fulfilled" | "canceled";
+          processed_at?: string | null;
+          processed_by?: string | null;
+          updated_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

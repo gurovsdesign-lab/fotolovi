@@ -55,10 +55,23 @@ export async function createEventAction(
   const user = await requireUser();
   const title = String(formData.get("title") || "").trim();
   const eventDate = String(formData.get("eventDate") || "");
-  const useCredit = formData.get("useCredit") === "on";
+  const eventType = String(formData.get("eventType") || "test");
+  const useCredit = eventType === "premium" || formData.get("useCredit") === "on";
 
   if (!title || !eventDate) {
     return { error: "Укажите название и дату мероприятия" };
+  }
+
+  if (!isDateInputValue(eventDate)) {
+    return { error: "Укажите дату в формате ГГГГ-ММ-ДД" };
+  }
+
+  if (eventDate < getTodayDateString()) {
+    return { error: "Эта дата уже прошла" };
+  }
+
+  if (eventType !== "test" && eventType !== "premium") {
+    return { error: "Выберите тип мероприятия" };
   }
 
   const supabase = await createServerSupabaseClient();
@@ -103,9 +116,12 @@ export async function createEventAction(
   const eventAny = data as any;
 
   if (useCredit) {
-    const { data: debited, error: debitError } = await (supabase as any).rpc("debit_current_user_credit", {
-      p_reason: `Создание мероприятия: ${title}`,
-    });
+    const { data: debited, error: debitError } = await (supabase as any).rpc(
+      "debit_current_user_credit",
+      {
+        p_reason: `Создание мероприятия: ${title}`,
+      },
+    );
 
     if (debitError || debited !== true) {
       console.error("Failed to debit credit for paid event", {
@@ -114,7 +130,9 @@ export async function createEventAction(
         message: debitError?.message ?? "Credit debit returned false",
       });
       await supabase.from("events").delete().eq("id", eventAny.id).eq("user_id", user.id);
-      return { error: debitError?.message || "Недостаточно credits для платного мероприятия" };
+      return {
+        error: debitError?.message || "Недостаточно credits для платного мероприятия",
+      };
     }
   }
 
@@ -146,7 +164,10 @@ export async function deleteEventAction(formData: FormData) {
   redirect("/dashboard");
 }
 
-export async function renameEventAction(eventId: string, title: string): Promise<RenameEventResult> {
+export async function renameEventAction(
+  eventId: string,
+  title: string,
+): Promise<RenameEventResult> {
   const user = await requireUser();
   const nextTitle = title.trim();
 
@@ -226,7 +247,10 @@ export async function updateEventDateAction(
     return { error: loadError?.message || "Не удалось найти мероприятие" };
   }
 
-  const currentEventData = currentEvent as unknown as { event_date: string; slug: string };
+  const currentEventData = currentEvent as unknown as {
+    event_date: string;
+    slug: string;
+  };
 
   if (!isEventDateEditable(getEventLifecycle(currentEventData.event_date))) {
     return { error: "Дата прошедшего мероприятия заблокирована" };
@@ -253,7 +277,9 @@ export async function updateEventDateAction(
   return { eventDate: updatedEvent.event_date };
 }
 
-export async function updateEventSettingsAction(formData: FormData): Promise<EventSettingsResult> {
+export async function updateEventSettingsAction(
+  formData: FormData,
+): Promise<EventSettingsResult> {
   const user = await requireUser();
   const eventId = String(formData.get("eventId") || "");
   const guestAccessCodeEnabled = formData.get("guestAccessCodeEnabled") === "on";
@@ -276,7 +302,11 @@ export async function updateEventSettingsAction(formData: FormData): Promise<Eve
     return { error: "Выберите режим модерации" };
   }
 
-  if (guestAccessCodeEnabled && submittedAccessCode && !/^\d{4}$/.test(submittedAccessCode)) {
+  if (
+    guestAccessCodeEnabled &&
+    submittedAccessCode &&
+    !/^\d{4}$/.test(submittedAccessCode)
+  ) {
     return { error: "Код доступа должен состоять из 4 цифр" };
   }
 
@@ -309,7 +339,9 @@ export async function updateEventSettingsAction(formData: FormData): Promise<Eve
     } as never)
     .eq("id", eventId)
     .eq("user_id", user.id)
-    .select("guest_access_code_enabled,guest_access_code,guest_access_mode,moderation_mode")
+    .select(
+      "guest_access_code_enabled,guest_access_code,guest_access_mode,moderation_mode",
+    )
     .single();
 
   if (error || !data) {

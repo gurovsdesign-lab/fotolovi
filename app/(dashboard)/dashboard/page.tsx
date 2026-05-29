@@ -3,32 +3,35 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { EventCard } from "@/components/events/EventCard";
 import { CreateEventModal } from "@/components/events/CreateEventModal";
+import { PremiumBalanceBlock } from "@/components/premium/PremiumBalanceBlock";
 import { requireUser } from "@/features/auth/queries";
 import { getCreditAmount } from "@/features/credits/queries";
 import { getUserEvents } from "@/features/events/queries";
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [events, credits] = await Promise.all([getUserEvents(user.id), getCreditAmount(user.id)]);
+  const [events, credits] = await Promise.all([
+    getUserEvents(user.id),
+    getCreditAmount(user.id),
+  ]);
 
   return (
     <DashboardLayout email={user.email}>
       <div className="grid gap-8">
-        <section className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <section className="grid gap-5 lg:grid-cols-[1fr_420px] lg:items-end">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">Кабинет ведущего</p>
-            <h1 className="mt-3 font-display text-4xl text-ink sm:text-5xl">Мероприятия</h1>
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">
+              Кабинет ведущего
+            </p>
+            <h1 className="mt-3 font-display text-4xl text-ink sm:text-5xl">
+              Мероприятия
+            </h1>
             <p className="mt-3 max-w-2xl text-muted">
-              Создайте событие, покажите гостям QR-код и собирайте живые фото в одном альбоме.
+              Создайте событие, покажите гостям QR-код и собирайте живые фото в одном
+              альбоме.
             </p>
           </div>
-          <div className="rounded-2xl bg-white px-5 py-4 shadow-soft">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">Доступно</p>
-            <div className="mt-1 flex items-center gap-2">
-              <p className="text-3xl font-semibold text-ink">{credits}</p>
-              <span className="text-sm font-medium text-muted">premium</span>
-            </div>
-          </div>
+          <PremiumBalanceBlock credits={credits} />
         </section>
 
         <CreateEventModal credits={credits} />

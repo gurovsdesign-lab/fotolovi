@@ -13,6 +13,107 @@ export async function addCreditsAction(formData: FormData) {
 
   if (!userId || !Number.isFinite(amount) || amount === 0) return;
 
+  await grantCreditsToUser(supabase, userId, amount, "Начисление администратором");
+
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
+}
+
+export async function confirmPremiumRequestAction(formData: FormData) {
+  const supabase = await createAdminActionSupabaseClient();
+  if (!supabase) return;
+
+  const requestId = String(formData.get("requestId") || "");
+  if (!requestId) return;
+
+  const { data: request, error: requestError } = await (
+    supabase.from("premium_requests") as any
+  )
+    .select("id,user_id,package_events,status")
+    .eq("id", requestId)
+    .maybeSingle();
+
+  const premiumRequest = request as any;
+
+  if (requestError || !premiumRequest || premiumRequest.status !== "pending") {
+    console.error("Failed to load pending premium request before confirm", {
+      requestId,
+      message: requestError?.message ?? "Request is not pending",
+    });
+    return;
+  }
+
+  await grantCreditsToUser(
+    supabase,
+    premiumRequest.user_id,
+    premiumRequest.package_events,
+    `Пополнение premium по заявке ${requestId}`,
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error: updateError } = await (supabase.from("premium_requests") as any)
+    .update({
+      status: "fulfilled",
+      processed_at: new Date().toISOString(),
+      processed_by: user?.id ?? null,
+    } as any)
+    .eq("id", requestId)
+    .eq("status", "pending");
+
+  if (updateError) {
+    console.error("Failed to mark premium request as fulfilled", {
+      requestId,
+      message: updateError.message,
+    });
+    throw new Error("Не удалось обновить заявку");
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
+}
+
+export async function cancelPremiumRequestAction(formData: FormData) {
+  const supabase = await createAdminActionSupabaseClient();
+  if (!supabase) return;
+
+  const requestId = String(formData.get("requestId") || "");
+  if (!requestId) return;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await (supabase.from("premium_requests") as any)
+    .update({
+      status: "canceled",
+      processed_at: new Date().toISOString(),
+      processed_by: user?.id ?? null,
+    } as any)
+    .eq("id", requestId)
+    .eq("status", "pending");
+
+  if (error) {
+    console.error("Failed to cancel premium request", {
+      requestId,
+      message: error.message,
+    });
+    throw new Error("Не удалось отменить заявку");
+  }
+
+  revalidatePath("/admin");
+}
+
+async function grantCreditsToUser(
+  supabase: Awaited<ReturnType<typeof createAdminActionSupabaseClient>>,
+  userId: string,
+  amount: number,
+  reason: string,
+) {
+  if (!supabase) return;
+
   const { data: current, error: selectError }: any = await supabase
     .from("credits")
     .select("amount")
@@ -48,7 +149,7 @@ export async function addCreditsAction(formData: FormData) {
   const { error: transactionError } = await supabase.from("credit_transactions").insert({
     user_id: userId,
     amount,
-    reason: "Начисление администратором",
+    reason,
   } as any);
 
   if (transactionError) {
@@ -59,9 +160,6 @@ export async function addCreditsAction(formData: FormData) {
     });
     throw new Error("Не удалось сохранить транзакцию credits");
   }
-
-  revalidatePath("/admin");
-  revalidatePath("/dashboard");
 }
 
 export async function adminDeletePhotoAction(formData: FormData) {

@@ -47,6 +47,22 @@
 - `reason text`
 - `created_at timestamptz`
 
+### premium_requests
+
+- `id uuid primary key`
+- `user_id uuid references profiles(id)`
+- `package_id text`
+- `package_events integer`
+- `package_total_price integer nullable`
+- `contact text`
+- `preferred_communication text`
+- `comment text nullable`
+- `status text default 'pending'`
+- `processed_at timestamptz nullable`
+- `processed_by uuid references profiles(id) nullable`
+- `created_at timestamptz`
+- `updated_at timestamptz`
+
 ## RLS заметки
 
 Базовая RLS находится в `supabase/schema.sql`.
@@ -55,6 +71,8 @@
 - Ведущий управляет photos своих events.
 - Гости могут читать публичные events и видимые photos.
 - Гости могут загружать photos в существующее мероприятие в пределах `photo_limit`.
+- Пользователь создаёт и видит свои premium_requests.
+- Admin видит и обрабатывает premium_requests.
 - Admin определяется через `profiles.role = 'admin'`.
 
 TODO для production: заменить публичный `select` events на RPC или view с ограниченным набором полей, если появятся приватные поля мероприятия.
