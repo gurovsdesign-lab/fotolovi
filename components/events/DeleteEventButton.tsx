@@ -73,7 +73,7 @@ export function DeleteEventButton({
               <p className="mt-2">После удаления будут недоступны:</p>
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 <li>все фотографии мероприятия</li>
-                <li>live screen</li>
+                <li>экран проектора</li>
                 <li>QR и access links</li>
                 <li>данные мероприятия</li>
               </ul>

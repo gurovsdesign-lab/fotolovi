@@ -102,7 +102,7 @@ export function getLiveLifecycleMessage(lifecycle: EventLifecycle) {
   }
 
   if (lifecycle.status === "storage") {
-    return `Live screen уже завершён. Фотографии доступны для скачивания до ${formatDate(lifecycle.storageDeadlineDate)}.`;
+    return `Экран проектора уже завершён. Фотографии доступны для скачивания до ${formatDate(lifecycle.storageDeadlineDate)}.`;
   }
 
   if (lifecycle.status === "completed") {

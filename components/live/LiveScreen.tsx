@@ -78,6 +78,8 @@ export function LiveScreen({
   );
   const [incomingCenterPhoto, setIncomingCenterPhoto] = useState<LiveScreenPhoto | null>(null);
   const [isIncomingCenterPhotoReady, setIsIncomingCenterPhotoReady] = useState(false);
+  const [isTitleMultiline, setIsTitleMultiline] = useState(false);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
 
   useEffect(() => {
     if (!showPhotos) return;
@@ -157,6 +159,33 @@ export function LiveScreen({
     return () => window.clearTimeout(swap);
   }, [incomingCenterPhoto, isIncomingCenterPhotoReady]);
 
+  useEffect(() => {
+    const titleElement = titleRef.current;
+    if (!titleElement) return;
+
+    let frameId = 0;
+
+    const updateTitleLineCount = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        const lineHeight = Number.parseFloat(
+          window.getComputedStyle(titleElement).lineHeight,
+        );
+        if (!lineHeight) return;
+
+        setIsTitleMultiline(titleElement.scrollHeight > lineHeight * 1.35);
+      });
+    };
+
+    updateTitleLineCount();
+    window.addEventListener("resize", updateTitleLineCount);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", updateTitleLineCount);
+    };
+  }, [event.title]);
+
   const guestAccessCode = event.guest_access_code_enabled ? event.guest_access_code : null;
 
   if (!visiblePhotos.length || !centerPhoto || !displayedCenterPhoto) {
@@ -191,7 +220,14 @@ export function LiveScreen({
       <SnakeSideColumns photos={visiblePhotos} />
 
       <header className="relative z-20 px-5 pb-1 pt-7 text-center sm:px-8 lg:px-12">
-        <h1 className="live-title mx-auto py-2 font-display text-[clamp(2.4rem,5.2vw,4rem)] leading-[1.12] text-white">
+        <h1
+          ref={titleRef}
+          className={`live-title mx-auto max-h-[1.12em] overflow-visible py-2 font-display text-[clamp(2.4rem,5.2vw,4rem)] leading-[1.12] text-white transition-transform duration-300 ${
+            isTitleMultiline
+              ? "origin-top scale-[0.8] -translate-y-[clamp(0.5rem,1.8vh,1rem)]"
+              : ""
+          }`}
+        >
           {event.title}
         </h1>
       </header>

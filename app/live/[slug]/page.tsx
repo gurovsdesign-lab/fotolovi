@@ -77,7 +77,7 @@ function MissingLiveEvent({ slug }: { slug: string }) {
   return (
     <main className="grid min-h-screen place-items-center bg-night px-6 text-center text-white">
       <div>
-        <p className="text-sm font-medium uppercase tracking-[0.28em] text-gold/90">Live screen</p>
+        <p className="text-sm font-medium uppercase tracking-[0.28em] text-gold/90">Экран проектора</p>
         <h1 className="mt-4 font-display text-5xl">Мероприятие не найдено</h1>
         <p className="mt-4 text-lg text-white/60">Проверьте ссылку: {slug}</p>
       </div>

@@ -82,7 +82,7 @@ export function PhotoGrid({
     return (
       <EmptyState
         title="Пока нет фото"
-        description="Когда гости загрузят первые снимки, они появятся здесь и на live screen."
+        description="Когда гости загрузят первые снимки, они появятся здесь и на экране проектора."
       />
     );
   }

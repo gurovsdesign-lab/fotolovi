@@ -14,7 +14,7 @@ const playfair = Playfair_Display({
 
 export const metadata: Metadata = {
   title: "ФотоЛови",
-  description: "Живой фотоальбом и live screen для мероприятий.",
+  description: "Живой фотоальбом и экран проектора для мероприятий.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

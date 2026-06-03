@@ -39,7 +39,7 @@ export function GuestAccessGate({ slug }: { slug: string }) {
           <div>
             <h2 className="text-2xl font-semibold text-ink">Введите код доступа</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Код показывается на live screen рядом с QR-кодом мероприятия.
+              Код показывается на экране проектора рядом с QR-кодом мероприятия.
             </p>
           </div>
         </div>

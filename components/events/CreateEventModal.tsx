@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { PremiumContactRequestModal } from "@/components/premium/PremiumContactRequestModal";
 import { PremiumPackagesModal } from "@/components/premium/PremiumPackagesModal";
+import { MAX_EVENT_TITLE_LENGTH } from "@/lib/constants";
 import { getTodayDateString } from "@/lib/eventSettings";
 import type { PremiumPackage } from "@/lib/premiumPackages";
 
@@ -36,6 +37,11 @@ export function CreateEventModal({ credits }: { credits: number }) {
 
     if (!nextTitle || !nextEventDate) {
       setClientError("Укажите название и дату мероприятия");
+      return;
+    }
+
+    if (nextTitle.length > MAX_EVENT_TITLE_LENGTH) {
+      setClientError(`Название должно быть не длиннее ${MAX_EVENT_TITLE_LENGTH} символов`);
       return;
     }
 
@@ -80,7 +86,9 @@ export function CreateEventModal({ credits }: { credits: number }) {
             label="Название мероприятия"
             placeholder="Свадьба Анны и Михаила"
             value={title}
-            onChange={(event) => setTitle(event.target.value)}
+            onChange={(event) => setTitle(event.target.value.slice(0, MAX_EVENT_TITLE_LENGTH))}
+            maxLength={MAX_EVENT_TITLE_LENGTH}
+            hint={`${title.length}/${MAX_EVENT_TITLE_LENGTH} символов`}
           />
           <Input
             id="eventDate"

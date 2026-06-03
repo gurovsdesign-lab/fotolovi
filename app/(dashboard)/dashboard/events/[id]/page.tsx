@@ -102,8 +102,8 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
           Назад
         </Link>
 
-        <section className="grid gap-5 lg:grid-cols-[1fr_360px]">
-          <Card className="relative grid gap-6">
+        <section className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <Card className="relative grid min-h-[31rem] content-start gap-6">
             <EventSettingsButton
               eventId={event.id}
               guestAccessCodeEnabled={Boolean(event.guest_access_code_enabled)}
@@ -144,6 +144,7 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
             liveUrl={liveUrl}
             eventTitle={event.title}
             title={lifecycle.status === "storage" ? "Ссылка на альбом" : "Ссылка на загрузку фото"}
+            className="h-full min-h-[31rem] content-start"
           />
         </section>
 

@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { FREE_EVENT_PHOTO_LIMIT, PAID_EVENT_PHOTO_LIMIT } from "@/lib/constants";
+import { FREE_EVENT_PHOTO_LIMIT, MAX_EVENT_TITLE_LENGTH, PAID_EVENT_PHOTO_LIMIT } from "@/lib/constants";
 import {
   createGuestAccessCookieName,
   getTodayDateString,
@@ -60,6 +60,10 @@ export async function createEventAction(
 
   if (!title || !eventDate) {
     return { error: "Укажите название и дату мероприятия" };
+  }
+
+  if (title.length > MAX_EVENT_TITLE_LENGTH) {
+    return { error: `Название должно быть не длиннее ${MAX_EVENT_TITLE_LENGTH} символов` };
   }
 
   if (!isDateInputValue(eventDate)) {
@@ -177,6 +181,10 @@ export async function renameEventAction(
 
   if (!nextTitle) {
     return { error: "Название не может быть пустым" };
+  }
+
+  if (nextTitle.length > MAX_EVENT_TITLE_LENGTH) {
+    return { error: `Название должно быть не длиннее ${MAX_EVENT_TITLE_LENGTH} символов` };
   }
 
   const supabase = await createServerSupabaseClient();

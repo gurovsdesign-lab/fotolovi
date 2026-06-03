@@ -5,17 +5,20 @@ import { QRCodeCanvas } from "qrcode.react";
 import { Copy, Download, ExternalLink, Maximize2, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { cn } from "@/lib/utils";
 
 export function QRBlock({
   guestUrl,
   liveUrl,
   eventTitle,
   title = "Ссылка на загрузку фото",
+  className,
 }: {
   guestUrl: string;
   liveUrl?: string;
   eventTitle: string;
   title?: string;
+  className?: string;
 }) {
   const qrRef = useRef<HTMLCanvasElement | null>(null);
   const [isLiveModalOpen, setIsLiveModalOpen] = useState(false);
@@ -50,7 +53,7 @@ export function QRBlock({
 
   return (
     <>
-      <Card className="relative grid gap-5">
+      <Card className={cn("relative grid gap-5", className)}>
         <button
           type="button"
           className="absolute right-5 top-5 inline-flex size-10 items-center justify-center rounded-xl border border-black/10 bg-white text-muted shadow-sm transition hover:border-action/30 hover:text-action"
@@ -76,7 +79,7 @@ export function QRBlock({
           {liveUrl ? (
             <Button type="button" variant="dark" onClick={() => setIsLiveModalOpen(true)}>
               <ExternalLink className="size-4" />
-              Открыть live screen
+              Открыть экран проектора
             </Button>
           ) : null}
         </div>
@@ -93,7 +96,7 @@ export function QRBlock({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 id="open-live-title" className="text-xl font-semibold text-ink">
-                  Открыть Live Screen
+                  Открыть экран проектора
                 </h2>
                 <p className="mt-1 text-sm leading-6 text-muted">
                   Для полноэкранного показа откроем отдельное чистое окно. Если браузер не включит fullscreen сам, нажмите F11 или системную кнопку полноэкранного режима.
@@ -103,7 +106,7 @@ export function QRBlock({
                 type="button"
                 className="rounded-full p-2 text-muted transition hover:bg-black/5 hover:text-ink"
                 onClick={() => setIsLiveModalOpen(false)}
-                aria-label="Закрыть выбор live screen"
+                aria-label="Закрыть выбор экрана проектора"
               >
                 <X className="size-5" />
               </button>

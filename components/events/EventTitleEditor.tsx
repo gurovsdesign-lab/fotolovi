@@ -5,6 +5,7 @@ import { Pencil, X } from "lucide-react";
 import { renameEventAction } from "@/features/events/actions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { MAX_EVENT_TITLE_LENGTH } from "@/lib/constants";
 
 export function EventTitleEditor({
   eventId,
@@ -55,6 +56,11 @@ export function EventTitleEditor({
       return;
     }
 
+    if (nextTitle.length > MAX_EVENT_TITLE_LENGTH) {
+      setError(`Название должно быть не длиннее ${MAX_EVENT_TITLE_LENGTH} символов`);
+      return;
+    }
+
     startTransition(async () => {
       const result = await renameEventAction(eventId, nextTitle);
 
@@ -72,12 +78,12 @@ export function EventTitleEditor({
 
   return (
     <>
-      <div className="mt-3 flex min-w-0 items-center gap-2">
-        <h1 className="min-w-0 break-words font-display text-4xl text-ink sm:text-5xl">{currentTitle}</h1>
+      <div className="mt-3 flex min-w-0 items-start gap-2">
+        <h1 className="min-w-0 flex-1 font-display text-4xl leading-tight text-ink [overflow-wrap:anywhere] sm:text-5xl">{currentTitle}</h1>
         {canEdit ? (
           <button
             type="button"
-            className="inline-flex size-10 shrink-0 -translate-y-0.5 items-center justify-center rounded-full text-muted transition hover:bg-black/5 hover:text-action"
+            className="inline-flex size-10 shrink-0 translate-y-1 items-center justify-center rounded-full text-muted transition hover:bg-black/5 hover:text-action"
             onClick={openModal}
             aria-label="Переименовать мероприятие"
           >
@@ -119,9 +125,11 @@ export function EventTitleEditor({
                 label="Название мероприятия"
                 value={draftTitle}
                 onChange={(event) => {
-                  setDraftTitle(event.target.value);
+                  setDraftTitle(event.target.value.slice(0, MAX_EVENT_TITLE_LENGTH));
                   if (error) setError("");
                 }}
+                maxLength={MAX_EVENT_TITLE_LENGTH}
+                hint={`${draftTitle.length}/${MAX_EVENT_TITLE_LENGTH} символов`}
                 disabled={isPending}
                 autoFocus
               />

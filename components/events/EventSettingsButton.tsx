@@ -198,7 +198,7 @@ export function EventSettingsButton({
                     checked={selectedModerationMode === "show_immediately"}
                     onChange={() => setSelectedModerationMode("show_immediately")}
                     title="Показывать сразу"
-                    description="Новые фото сразу попадают на live screen, как сейчас."
+                    description="Новые фото сразу попадают на экран проектора, как сейчас."
                     disabled={isPending}
                   />
                   <SettingRadio

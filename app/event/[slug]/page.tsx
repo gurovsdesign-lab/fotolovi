@@ -76,7 +76,9 @@ export default async function GuestEventPage({ params }: { params: Promise<{ slu
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">
             Фотоальбом мероприятия
           </p>
-          <h1 className="mt-3 font-display text-4xl text-ink sm:text-6xl">{event.title}</h1>
+          <h1 className="mt-3 min-w-0 font-display text-4xl leading-tight text-ink [overflow-wrap:anywhere] sm:text-6xl">
+            {event.title}
+          </h1>
           <p className="mt-3 text-muted">{formatDate(event.event_date)}</p>
         </section>
 
