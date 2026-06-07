@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 const LOCAL_NETWORK_ORIGIN = "http://192.168.3.112:3000";
-const PRODUCTION_ORIGIN = "https://fotolovi.vercel.app";
+const PRODUCTION_ORIGIN = "https://www.fotolovi.ru";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
