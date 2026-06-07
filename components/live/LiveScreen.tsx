@@ -72,7 +72,9 @@ export function LiveScreen({
   explanatoryText?: string | null;
 }) {
   const [photos, setPhotos] = useState(initialPhotos);
-  const [centerPhotoIndex, setCenterPhotoIndex] = useState(0);
+  const [centerPhotoId, setCenterPhotoId] = useState<string | null>(
+    initialPhotos[0]?.id ?? null,
+  );
   const [displayedCenterPhoto, setDisplayedCenterPhoto] = useState<LiveScreenPhoto | null>(
     initialPhotos[0] ?? null,
   );
@@ -80,6 +82,12 @@ export function LiveScreen({
   const [isIncomingCenterPhotoReady, setIsIncomingCenterPhotoReady] = useState(false);
   const [isTitleMultiline, setIsTitleMultiline] = useState(false);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
+  const visiblePhotosRef = useRef(initialPhotos);
+  const centerPhotoIdRef = useRef<string | null>(initialPhotos[0]?.id ?? null);
+  const knownCenterPhotoIdsRef = useRef(new Set(initialPhotos.map((photo) => photo.id)));
+  const neverShownCenterPhotoIdsRef = useRef(initialPhotos.slice(1).map((photo) => photo.id));
+  const shownCenterPhotoIdsRef = useRef(initialPhotos[0] ? [initialPhotos[0].id] : []);
+  const repeatCenterPhotoCursorRef = useRef(0);
 
   useEffect(() => {
     if (!showPhotos) return;
@@ -99,26 +107,101 @@ export function LiveScreen({
   }, [event.slug, showPhotos]);
 
   const visiblePhotos = useMemo(() => (showPhotos ? photos : []), [photos, showPhotos]);
-  const centerPhoto = visiblePhotos.length
-    ? visiblePhotos[centerPhotoIndex % visiblePhotos.length]
-    : null;
+  const centerPhoto = useMemo(
+    () =>
+      visiblePhotos.find((photo) => photo.id === centerPhotoId) ??
+      visiblePhotos[0] ??
+      null,
+    [centerPhotoId, visiblePhotos],
+  );
   const visiblePhotoIds = useMemo(
     () => new Set(visiblePhotos.map((photo) => photo.id)),
     [visiblePhotos],
   );
+  const activeCenterPhoto =
+    displayedCenterPhoto && visiblePhotoIds.has(displayedCenterPhoto.id)
+      ? displayedCenterPhoto
+      : centerPhoto;
 
   useEffect(() => {
-    if (visiblePhotos.length <= 1) {
-      setCenterPhotoIndex(0);
+    centerPhotoIdRef.current = centerPhotoId;
+  }, [centerPhotoId]);
+
+  useEffect(() => {
+    visiblePhotosRef.current = visiblePhotos;
+
+    const nextVisiblePhotoIds = new Set(visiblePhotos.map((photo) => photo.id));
+    const previousKnownPhotoIds = knownCenterPhotoIdsRef.current;
+    const newPhotoIds = visiblePhotos
+      .filter((photo) => !previousKnownPhotoIds.has(photo.id))
+      .sort(comparePhotosByUploadDateAsc)
+      .map((photo) => photo.id);
+
+    shownCenterPhotoIdsRef.current = shownCenterPhotoIdsRef.current.filter((photoId) =>
+      nextVisiblePhotoIds.has(photoId),
+    );
+    if (shownCenterPhotoIdsRef.current.length) {
+      repeatCenterPhotoCursorRef.current %= shownCenterPhotoIdsRef.current.length;
+    } else {
+      repeatCenterPhotoCursorRef.current = 0;
+    }
+
+    const shownPhotoIds = new Set(shownCenterPhotoIdsRef.current);
+    const queuedPhotoIds = new Set<string>();
+    const retainedNeverShownPhotoIds = neverShownCenterPhotoIdsRef.current.filter(
+      (photoId) => {
+        if (!nextVisiblePhotoIds.has(photoId) || shownPhotoIds.has(photoId)) return false;
+        queuedPhotoIds.add(photoId);
+        return true;
+      },
+    );
+    const prioritizedNewPhotoIds = newPhotoIds.filter((photoId) => {
+      if (shownPhotoIds.has(photoId) || queuedPhotoIds.has(photoId)) return false;
+      queuedPhotoIds.add(photoId);
+      return true;
+    });
+
+    neverShownCenterPhotoIdsRef.current = [
+      ...prioritizedNewPhotoIds,
+      ...retainedNeverShownPhotoIds,
+    ];
+    knownCenterPhotoIdsRef.current = nextVisiblePhotoIds;
+
+    if (!visiblePhotos.length) {
+      setCenterPhotoId(null);
       return;
     }
 
+    const currentCenterPhotoId = centerPhotoIdRef.current;
+    const hasCurrentCenterPhoto =
+      currentCenterPhotoId !== null && nextVisiblePhotoIds.has(currentCenterPhotoId);
+
+    if (prioritizedNewPhotoIds.length) {
+      setCenterPhotoId(takeNextNeverShownCenterPhotoId(nextVisiblePhotoIds));
+      return;
+    }
+
+    if (!hasCurrentCenterPhoto) {
+      setCenterPhotoId(
+        takeNextNeverShownCenterPhotoId(nextVisiblePhotoIds) ?? visiblePhotos[0].id,
+      );
+    }
+  }, [visiblePhotos]);
+
+  useEffect(() => {
+    if (!showPhotos || visiblePhotos.length <= 1) return;
+
     const rotation = window.setInterval(() => {
-      setCenterPhotoIndex((currentIndex) => (currentIndex + 1) % visiblePhotos.length);
+      setCenterPhotoId((currentPhotoId) => getNextCenterPhotoId(currentPhotoId));
     }, CENTER_PHOTO_INTERVAL_MS);
 
     return () => window.clearInterval(rotation);
-  }, [visiblePhotos.length]);
+  }, [showPhotos, visiblePhotos.length]);
+
+  useEffect(() => {
+    if (!displayedCenterPhoto) return;
+    markCenterPhotoAsShown(displayedCenterPhoto.id);
+  }, [displayedCenterPhoto]);
 
   useEffect(() => {
     if (!centerPhoto) return;
@@ -188,14 +271,57 @@ export function LiveScreen({
 
   const guestAccessCode = event.guest_access_code_enabled ? event.guest_access_code : null;
 
-  if (!visiblePhotos.length || !centerPhoto || !displayedCenterPhoto) {
+  function takeNextNeverShownCenterPhotoId(visibleIds: Set<string>) {
+    while (neverShownCenterPhotoIdsRef.current.length) {
+      const nextPhotoId = neverShownCenterPhotoIdsRef.current.shift() ?? null;
+      if (nextPhotoId && visibleIds.has(nextPhotoId)) return nextPhotoId;
+    }
+
+    return null;
+  }
+
+  function getNextCenterPhotoId(currentPhotoId: string | null) {
+    const latestVisiblePhotos = visiblePhotosRef.current;
+    if (!latestVisiblePhotos.length) return null;
+
+    const latestVisiblePhotoIds = new Set(latestVisiblePhotos.map((photo) => photo.id));
+    const neverShownPhotoId = takeNextNeverShownCenterPhotoId(latestVisiblePhotoIds);
+    if (neverShownPhotoId) return neverShownPhotoId;
+
+    shownCenterPhotoIdsRef.current = shownCenterPhotoIdsRef.current.filter((photoId) =>
+      latestVisiblePhotoIds.has(photoId),
+    );
+
+    if (!shownCenterPhotoIdsRef.current.length) {
+      return latestVisiblePhotos[0].id;
+    }
+
+    const cursor =
+      repeatCenterPhotoCursorRef.current % shownCenterPhotoIdsRef.current.length;
+    const nextRepeatedPhotoId = shownCenterPhotoIdsRef.current[cursor] ?? null;
+    repeatCenterPhotoCursorRef.current =
+      (cursor + 1) % shownCenterPhotoIdsRef.current.length;
+
+    return nextRepeatedPhotoId ?? currentPhotoId ?? latestVisiblePhotos[0].id;
+  }
+
+  function markCenterPhotoAsShown(photoId: string) {
+    neverShownCenterPhotoIdsRef.current = neverShownCenterPhotoIdsRef.current.filter(
+      (queuedPhotoId) => queuedPhotoId !== photoId,
+    );
+
+    if (shownCenterPhotoIdsRef.current.includes(photoId)) return;
+    shownCenterPhotoIdsRef.current.push(photoId);
+  }
+
+  if (!showPhotos) {
     return (
       <LiveEmptyState
         guestUrl={guestUrl}
         title={event.title}
         accessCode={guestAccessCode}
         explanatoryText={explanatoryText}
-        showPhotoHint={showPhotos}
+        showPhotoHint={false}
       />
     );
   }
@@ -234,36 +360,57 @@ export function LiveScreen({
 
       <main className="relative z-10 h-[calc(100vh-5.8rem)] overflow-hidden px-4 pb-16 sm:px-8 lg:px-12">
         <section className="relative z-10 grid h-full place-items-center">
-          <div className="live-main-glow relative isolate">
-            <figure className="live-photo-card live-main-photo-card relative z-10 aspect-[4/5] w-[min(74vw,28rem)] max-h-[calc(100vh-13rem)] overflow-hidden rounded-lg sm:h-[min(66vh,46rem)] sm:w-auto">
-              <Image
-                key={displayedCenterPhoto.id}
-                src={displayedCenterPhoto.public_url}
-                alt="Фото мероприятия"
-                fill
-                priority
-                className="live-center-photo-image object-cover"
-                sizes="(max-width: 640px) 72vw, (max-width: 1024px) 46vw, 36vw"
-              />
-              {incomingCenterPhoto ? (
+          {activeCenterPhoto ? (
+            <div className="live-main-glow relative isolate">
+              <figure className="live-photo-card live-main-photo-card relative z-10 aspect-[4/5] w-[min(74vw,28rem)] max-h-[calc(100vh-13rem)] overflow-hidden rounded-lg sm:h-[min(66vh,46rem)] sm:w-auto">
                 <Image
-                  key={incomingCenterPhoto.id}
-                  src={incomingCenterPhoto.public_url}
+                  key={activeCenterPhoto.id}
+                  src={activeCenterPhoto.public_url}
                   alt="Фото мероприятия"
                   fill
-                  className={`live-center-photo-image object-cover opacity-0 ${
-                    isIncomingCenterPhotoReady ? "animate-live-main-photo" : ""
-                  }`}
+                  priority
+                  className="live-center-photo-image object-cover"
                   sizes="(max-width: 640px) 72vw, (max-width: 1024px) 46vw, 36vw"
-                  onLoad={() => setIsIncomingCenterPhotoReady(true)}
-                  onError={() => {
-                    setIncomingCenterPhoto(null);
-                    setIsIncomingCenterPhotoReady(false);
-                  }}
                 />
-              ) : null}
-            </figure>
-          </div>
+                {incomingCenterPhoto ? (
+                  <Image
+                    key={incomingCenterPhoto.id}
+                    src={incomingCenterPhoto.public_url}
+                    alt="Фото мероприятия"
+                    fill
+                    className={`live-center-photo-image object-cover opacity-0 ${
+                      isIncomingCenterPhotoReady ? "animate-live-main-photo" : ""
+                    }`}
+                    sizes="(max-width: 640px) 72vw, (max-width: 1024px) 46vw, 36vw"
+                    onLoad={() => setIsIncomingCenterPhotoReady(true)}
+                    onError={() => {
+                      setIncomingCenterPhoto(null);
+                      setIsIncomingCenterPhotoReady(false);
+                    }}
+                  />
+                ) : null}
+              </figure>
+            </div>
+          ) : (
+            <div className="relative grid justify-items-center gap-6 text-center">
+              <div className="rounded-[1.5rem] bg-white p-4 shadow-glow">
+                <QRCodeCanvas value={guestUrl} size={220} marginSize={2} />
+              </div>
+              <div>
+                <h2 className="text-3xl font-semibold">Сканируйте QR и добавляйте фото</h2>
+                {guestAccessCode ? (
+                  <p className="mt-3 text-2xl font-semibold tracking-[0.18em] text-gold">
+                    {guestAccessCode}
+                  </p>
+                ) : null}
+                {explanatoryText ? (
+                  <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-white/68">
+                    {explanatoryText}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          )}
         </section>
 
       </main>
@@ -346,8 +493,25 @@ function snakeReducer(state: SnakeState, action: SnakeAction): SnakeState {
     };
   }
 
-  const pendingQueue = reconcileSnakeQueue(state.pendingQueue ?? state.queue, action.photos);
-  if (createSnakeQueueSignature(pendingQueue) === createSnakeQueueSignature(state.queue)) {
+  const nextQueue = reconcileSnakeQueue(state.pendingQueue ?? state.queue, action.photos);
+  const nextQueueSignature = createSnakeQueueSignature(nextQueue);
+  const currentQueueSignature = createSnakeQueueSignature(state.queue);
+
+  if (action.photos.length <= SNAKE_MIN_QUEUE_LENGTH) {
+    if (nextQueueSignature === currentQueueSignature) {
+      return {
+        ...state,
+        pendingQueue: null,
+      };
+    }
+
+    return {
+      queue: nextQueue,
+      pendingQueue: null,
+    };
+  }
+
+  if (nextQueueSignature === currentQueueSignature) {
     return {
       ...state,
       pendingQueue: null,
@@ -356,7 +520,7 @@ function snakeReducer(state: SnakeState, action: SnakeAction): SnakeState {
 
   return {
     ...state,
-    pendingQueue,
+    pendingQueue: nextQueue,
   };
 }
 
@@ -460,6 +624,10 @@ function PhotoBorder() {
 }
 
 function reconcileSnakeQueue(currentQueue: SideItem[], photos: LiveScreenPhoto[]): SideItem[] {
+  if (photos.length <= SNAKE_MIN_QUEUE_LENGTH) {
+    return reconcileFixedSlotSnakeQueue(currentQueue, photos);
+  }
+
   const photosById = new Map(photos.map((photo) => [photo.id, photo]));
   const nextQueue: SideItem[] = [];
   const retainedPhotoIds = new Set<string>();
@@ -489,6 +657,45 @@ function reconcileSnakeQueue(currentQueue: SideItem[], photos: LiveScreenPhoto[]
     const index = nextQueue.length;
     nextQueue.push(createPlaceholderSideItem(index, index));
   }
+
+  return nextQueue;
+}
+
+function reconcileFixedSlotSnakeQueue(
+  currentQueue: SideItem[],
+  photos: LiveScreenPhoto[],
+): SideItem[] {
+  const photosById = new Map(photos.map((photo) => [photo.id, photo]));
+  const retainedPhotoIds = new Set<string>();
+  const availableSlotIndexes: number[] = [];
+  const nextQueue = Array.from({ length: SNAKE_MIN_QUEUE_LENGTH }, (_, index) => {
+    const currentItem = currentQueue[index];
+
+    if (currentItem && isPhotoItem(currentItem)) {
+      const photo = photosById.get(currentItem.photoId);
+      if (photo && !retainedPhotoIds.has(photo.id)) {
+        retainedPhotoIds.add(photo.id);
+        return {
+          ...currentItem,
+          publicUrl: photo.public_url,
+        };
+      }
+    }
+
+    availableSlotIndexes.push(index);
+    if (currentItem?.type === "placeholder") return currentItem;
+    return createPlaceholderSideItem(index, index);
+  });
+
+  photos
+    .filter((photo) => !retainedPhotoIds.has(photo.id))
+    .forEach((photo) => {
+      const slotIndex = availableSlotIndexes.shift();
+      if (slotIndex === undefined) return;
+
+      retainedPhotoIds.add(photo.id);
+      nextQueue[slotIndex] = createPhotoSideItem(photo, slotIndex);
+    });
 
   return nextQueue;
 }
@@ -548,4 +755,14 @@ function createSnakeQueueSignature(queue: SideItem[]) {
 
 function isPhotoItem(item: SideItem): item is Extract<SideItem, { type: "photo" }> {
   return item.type === "photo";
+}
+
+function comparePhotosByUploadDateAsc(
+  firstPhoto: LiveScreenPhoto,
+  secondPhoto: LiveScreenPhoto,
+) {
+  return (
+    new Date(firstPhoto.uploaded_at).getTime() -
+    new Date(secondPhoto.uploaded_at).getTime()
+  );
 }
