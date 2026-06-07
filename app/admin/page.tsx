@@ -1,13 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
-import { AdminDeleteAccountButton } from "@/components/admin/AdminDeleteAccountButton";
+import { AdminUsersTable } from "@/components/admin/AdminUsersTable";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import {
   adminDeletePhotoAction,
-  addCreditsAction,
   cancelPremiumRequestAction,
   confirmPremiumRequestAction,
 } from "@/features/admin/actions";
@@ -72,7 +71,7 @@ export default async function AdminPage({
 
           <div className="mt-5 overflow-x-auto">
             {activeTab === "credits" ? (
-              <CreditsTable profiles={profiles as any[]} currentAdminId={user.id} />
+              <AdminUsersTable profiles={profiles as any[]} currentAdminId={user.id} />
             ) : (
               <PremiumRequestsTable premiumRequests={premiumRequests as any[]} />
             )}
@@ -139,63 +138,6 @@ function AdminTab({
       ) : null}
     </Link>
   );
-}
-
-function CreditsTable({
-  profiles,
-  currentAdminId,
-}: {
-  profiles: any[];
-  currentAdminId: string;
-}) {
-  return (
-    <table className="w-full min-w-[980px] text-left text-sm">
-      <thead className="text-muted">
-        <tr>
-          <th className="py-3">Электронная почта</th>
-          <th>Роль</th>
-          <th>Баланс</th>
-          <th>Дата</th>
-          <th>Начислить</th>
-          <th>Удаление</th>
-        </tr>
-      </thead>
-      <tbody>
-        {profiles.map((profile) => (
-          <tr key={profile.id} className="border-t border-black/5">
-            <td className="py-3">{profile.email}</td>
-            <td>{getRoleLabel(profile.role)}</td>
-            <td>{profile.credits_amount ?? 0}</td>
-            <td>{formatDate(profile.created_at)}</td>
-            <td>
-              <form action={addCreditsAction} className="flex gap-2">
-                <input type="hidden" name="userId" value={profile.id} />
-                <input
-                  name="amount"
-                  type="number"
-                  defaultValue={1}
-                  className="h-10 w-20 rounded-xl border border-black/10 px-3"
-                />
-                <Button className="h-10 px-3">Начислить</Button>
-              </form>
-            </td>
-            <td className="py-3">
-              {profile.id !== currentAdminId && profile.role !== "admin" ? (
-                <AdminDeleteAccountButton userId={profile.id} email={profile.email} />
-              ) : (
-                <span className="text-muted">Недоступно</span>
-              )}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-function getRoleLabel(role: string) {
-  if (role === "admin") return "Администратор";
-  return "Пользователь";
 }
 
 function PremiumRequestsTable({ premiumRequests }: { premiumRequests: any[] }) {
