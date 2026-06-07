@@ -55,7 +55,7 @@ export async function getAdminOverview() {
     premiumRequests: requestRows
       .map((request) => ({
         ...request,
-        account_email: emailByUserId.get(request.user_id) ?? "Email не найден",
+        account_email: emailByUserId.get(request.user_id) ?? "Почта не найдена",
       }))
       .sort((left, right) => {
         const leftPending = left.status === "pending" ? 0 : 1;

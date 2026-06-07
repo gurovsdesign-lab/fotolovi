@@ -92,8 +92,9 @@ export default function PrivacyPage() {
                 видны гостям, организатору и отображаться на экране мероприятия.
               </p>
               <p className="mt-3">
-                Организатор отвечает за настройки доступа, модерацию и законность
-                использования фотографий в рамках своего мероприятия.
+                Организатор самостоятельно отвечает за получение необходимых согласий
+                участников на съёмку, законность загрузки фотографий, настройки доступа и
+                модерацию в рамках своего мероприятия.
               </p>
             </section>
 
@@ -147,24 +148,30 @@ export default function PrivacyPage() {
               <p className="mt-3">
                 Чтобы удалить аккаунт, фотографии или отдельные сведения, напишите нам с
                 адреса, связанного с аккаунтом, на{" "}
-                <a className="font-medium text-action" href="mailto:privacy@fotolovi.ru">
-                  privacy@fotolovi.ru
+                <a
+                  className="font-medium text-action"
+                  href="mailto:fotolovi.core@yandex.ru"
+                >
+                  fotolovi.core@yandex.ru
                 </a>
-                . Мы уточним запрос и удалим данные, если их хранение больше не требуется
-                для работы сервиса, безопасности или исполнения закона.
+                . Мы рассмотрим запрос и удалим данные, хранение которых больше не
+                требуется для работы сервиса, безопасности или исполнения требований
+                закона.
+              </p>
+              <p className="mt-3">
+                Резервные копии могут храниться ограниченное время после удаления.
               </p>
             </section>
 
             <section className="rounded-2xl bg-white p-5 shadow-soft sm:p-6">
               <h2 className="text-xl font-semibold text-ink">9. Связь с нами</h2>
               <p className="mt-3">
-                По общим вопросам пишите на{" "}
-                <a className="font-medium text-action" href="mailto:support@fotolovi.ru">
-                  support@fotolovi.ru
-                </a>
-                . По вопросам данных и удаления пишите на{" "}
-                <a className="font-medium text-action" href="mailto:privacy@fotolovi.ru">
-                  privacy@fotolovi.ru
+                По общим вопросам, данным и удалению пишите на{" "}
+                <a
+                  className="font-medium text-action"
+                  href="mailto:fotolovi.core@yandex.ru"
+                >
+                  fotolovi.core@yandex.ru
                 </a>
                 .
               </p>

@@ -77,12 +77,19 @@ export default function ConsentPage() {
             <section className="rounded-2xl bg-white p-5 shadow-soft sm:p-6">
               <h2 className="text-xl font-semibold text-ink">5. Срок действия и отзыв</h2>
               <p className="mt-3">
-                Согласие действует до его отзыва или до удаления данных. Чтобы отозвать
-                согласие или запросить удаление данных, напишите на{" "}
-                <a className="font-medium text-action" href="mailto:privacy@fotolovi.ru">
-                  privacy@fotolovi.ru
+                Согласие действует до его отзыва или до удаления данных, которые больше не
+                требуются для работы сервиса, безопасности или исполнения требований
+                закона. Чтобы отозвать согласие или запросить удаление данных, напишите на{" "}
+                <a
+                  className="font-medium text-action"
+                  href="mailto:fotolovi.core@yandex.ru"
+                >
+                  fotolovi.core@yandex.ru
                 </a>
                 . После отзыва часть функций сервиса может стать недоступной.
+              </p>
+              <p className="mt-3">
+                Резервные копии могут храниться ограниченное время после удаления.
               </p>
             </section>
 

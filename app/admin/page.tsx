@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
+import { AdminDeleteAccountButton } from "@/components/admin/AdminDeleteAccountButton";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -31,7 +32,7 @@ export default async function AdminPage({
       <div className="grid gap-8">
         <section>
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">
-            Admin v1
+            Админка v1
           </p>
           <h1 className="mt-3 font-display text-5xl text-ink">Админка</h1>
         </section>
@@ -71,7 +72,7 @@ export default async function AdminPage({
 
           <div className="mt-5 overflow-x-auto">
             {activeTab === "credits" ? (
-              <CreditsTable profiles={profiles as any[]} />
+              <CreditsTable profiles={profiles as any[]} currentAdminId={user.id} />
             ) : (
               <PremiumRequestsTable premiumRequests={premiumRequests as any[]} />
             )}
@@ -140,23 +141,30 @@ function AdminTab({
   );
 }
 
-function CreditsTable({ profiles }: { profiles: any[] }) {
+function CreditsTable({
+  profiles,
+  currentAdminId,
+}: {
+  profiles: any[];
+  currentAdminId: string;
+}) {
   return (
-    <table className="w-full min-w-[720px] text-left text-sm">
+    <table className="w-full min-w-[980px] text-left text-sm">
       <thead className="text-muted">
         <tr>
           <th className="py-3">Электронная почта</th>
-          <th>Role</th>
-          <th>Credits</th>
+          <th>Роль</th>
+          <th>Баланс</th>
           <th>Дата</th>
           <th>Начислить</th>
+          <th>Удаление</th>
         </tr>
       </thead>
       <tbody>
         {profiles.map((profile) => (
           <tr key={profile.id} className="border-t border-black/5">
             <td className="py-3">{profile.email}</td>
-            <td>{profile.role}</td>
+            <td>{getRoleLabel(profile.role)}</td>
             <td>{profile.credits_amount ?? 0}</td>
             <td>{formatDate(profile.created_at)}</td>
             <td>
@@ -168,14 +176,26 @@ function CreditsTable({ profiles }: { profiles: any[] }) {
                   defaultValue={1}
                   className="h-10 w-20 rounded-xl border border-black/10 px-3"
                 />
-                <Button className="h-10 px-3">OK</Button>
+                <Button className="h-10 px-3">Начислить</Button>
               </form>
+            </td>
+            <td className="py-3">
+              {profile.id !== currentAdminId && profile.role !== "admin" ? (
+                <AdminDeleteAccountButton userId={profile.id} email={profile.email} />
+              ) : (
+                <span className="text-muted">Недоступно</span>
+              )}
             </td>
           </tr>
         ))}
       </tbody>
     </table>
   );
+}
+
+function getRoleLabel(role: string) {
+  if (role === "admin") return "Администратор";
+  return "Пользователь";
 }
 
 function PremiumRequestsTable({ premiumRequests }: { premiumRequests: any[] }) {

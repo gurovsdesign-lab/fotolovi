@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
+import { createServiceRoleSupabaseClient } from "@/lib/supabaseService";
 import { PHOTO_BUCKET } from "@/lib/constants";
 
 export async function addCreditsAction(formData: FormData) {
@@ -47,7 +48,7 @@ export async function confirmPremiumRequestAction(formData: FormData) {
     supabase,
     premiumRequest.user_id,
     premiumRequest.package_events,
-    `Пополнение premium по заявке ${requestId}`,
+    `Пополнение премиум-баланса по заявке ${requestId}`,
   );
 
   const {
@@ -175,6 +176,125 @@ export async function adminDeletePhotoAction(formData: FormData) {
   await supabase.from("photos").delete().eq("id", photoId);
 
   revalidatePath("/admin");
+}
+
+export async function adminDeleteAccountAction(formData: FormData) {
+  const supabase = await createAdminActionSupabaseClient();
+  if (!supabase) return;
+
+  const targetUserId = String(formData.get("userId") || "");
+  const targetEmail = String(formData.get("email") || "");
+
+  if (!targetUserId) return;
+
+  const {
+    data: { user: adminUser },
+  } = await supabase.auth.getUser();
+
+  if (!adminUser || adminUser.id === targetUserId) {
+    throw new Error("Нельзя удалить текущий аккаунт администратора");
+  }
+
+  const serviceSupabase = createServiceRoleSupabaseClient();
+  const { data: profile, error: profileError } = await serviceSupabase
+    .from("profiles")
+    .select("id,email,role")
+    .eq("id", targetUserId)
+    .maybeSingle();
+
+  const targetProfile = profile as any;
+
+  if (profileError || !targetProfile) {
+    console.error("Failed to load profile before admin account deletion", {
+      targetUserId,
+      message: profileError?.message ?? "Profile not found",
+    });
+    throw new Error("Не удалось найти аккаунт для удаления");
+  }
+
+  if (targetEmail && targetProfile.email && targetEmail !== targetProfile.email) {
+    throw new Error(
+      "Данные аккаунта изменились. Обновите страницу и попробуйте ещё раз.",
+    );
+  }
+
+  if (targetProfile.role === "admin") {
+    throw new Error("Удаление аккаунта администратора недоступно в этом действии");
+  }
+
+  const storagePaths = await getUserPhotoStoragePaths(serviceSupabase, targetUserId);
+
+  if (storagePaths.length) {
+    const { error: storageError } = await serviceSupabase.storage
+      .from(PHOTO_BUCKET)
+      .remove(storagePaths);
+
+    if (storageError) {
+      console.error("Failed to remove account photos from storage before user deletion", {
+        targetUserId,
+        count: storagePaths.length,
+        message: storageError.message,
+      });
+      throw new Error("Не удалось удалить фотографии аккаунта из хранилища");
+    }
+  }
+
+  const { error: deleteUserError } =
+    await serviceSupabase.auth.admin.deleteUser(targetUserId);
+
+  if (deleteUserError) {
+    console.error("Failed to delete auth user by admin", {
+      targetUserId,
+      email: targetProfile.email,
+      message: deleteUserError.message,
+    });
+    throw new Error("Не удалось удалить аккаунт");
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
+}
+
+async function getUserPhotoStoragePaths(
+  supabase: ReturnType<typeof createServiceRoleSupabaseClient>,
+  userId: string,
+) {
+  const { data: events, error: eventsError } = await supabase
+    .from("events")
+    .select("id")
+    .eq("user_id", userId);
+
+  if (eventsError) {
+    console.error("Failed to load user events before account deletion", {
+      userId,
+      message: eventsError.message,
+    });
+    throw new Error("Не удалось подготовить мероприятия аккаунта к удалению");
+  }
+
+  const eventIds = ((events ?? []) as Array<{ id: string }>).map((event) => event.id);
+  if (!eventIds.length) return [];
+
+  const { data: photos, error: photosError } = await supabase
+    .from("photos")
+    .select("storage_path")
+    .in("event_id", eventIds);
+
+  if (photosError) {
+    console.error("Failed to load user photo storage paths before account deletion", {
+      userId,
+      message: photosError.message,
+    });
+    throw new Error("Не удалось подготовить фотографии аккаунта к удалению");
+  }
+
+  return Array.from(
+    new Set(
+      ((photos ?? []) as Array<{ storage_path: string | null }>)
+        .map((photo) => photo.storage_path)
+        .filter(Boolean) as string[],
+    ),
+  );
 }
 
 async function createAdminActionSupabaseClient() {
