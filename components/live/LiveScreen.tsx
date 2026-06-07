@@ -84,6 +84,7 @@ export function LiveScreen({
   const titleRef = useRef<HTMLHeadingElement | null>(null);
   const visiblePhotosRef = useRef(initialPhotos);
   const centerPhotoIdRef = useRef<string | null>(initialPhotos[0]?.id ?? null);
+  const displayedCenterPhotoRef = useRef<LiveScreenPhoto | null>(initialPhotos[0] ?? null);
   const knownCenterPhotoIdsRef = useRef(new Set(initialPhotos.map((photo) => photo.id)));
   const neverShownCenterPhotoIdsRef = useRef(initialPhotos.slice(1).map((photo) => photo.id));
   const shownCenterPhotoIdsRef = useRef(initialPhotos[0] ? [initialPhotos[0].id] : []);
@@ -98,7 +99,11 @@ export function LiveScreen({
       });
       if (!response.ok) return;
       const payload = (await response.json()) as { photos: LiveScreenPhoto[] };
-      setPhotos(payload.photos);
+      setPhotos((currentPhotos) =>
+        createPhotosSignature(currentPhotos) === createPhotosSignature(payload.photos)
+          ? currentPhotos
+          : payload.photos,
+      );
     };
 
     void fetchPhotos();
@@ -108,24 +113,22 @@ export function LiveScreen({
 
   const visiblePhotos = useMemo(() => (showPhotos ? photos : []), [photos, showPhotos]);
   const centerPhoto = useMemo(
-    () =>
-      visiblePhotos.find((photo) => photo.id === centerPhotoId) ??
-      visiblePhotos[0] ??
-      null,
+    () => visiblePhotos.find((photo) => photo.id === centerPhotoId) ?? null,
     [centerPhotoId, visiblePhotos],
   );
   const visiblePhotoIds = useMemo(
     () => new Set(visiblePhotos.map((photo) => photo.id)),
     [visiblePhotos],
   );
-  const activeCenterPhoto =
-    displayedCenterPhoto && visiblePhotoIds.has(displayedCenterPhoto.id)
-      ? displayedCenterPhoto
-      : centerPhoto;
+  const activeCenterPhoto = displayedCenterPhoto ?? centerPhoto ?? visiblePhotos[0] ?? null;
 
   useEffect(() => {
     centerPhotoIdRef.current = centerPhotoId;
   }, [centerPhotoId]);
+
+  useEffect(() => {
+    displayedCenterPhotoRef.current = displayedCenterPhoto;
+  }, [displayedCenterPhoto]);
 
   useEffect(() => {
     visiblePhotosRef.current = visiblePhotos;
@@ -169,19 +172,18 @@ export function LiveScreen({
 
     if (!visiblePhotos.length) {
       setCenterPhotoId(null);
+      setDisplayedCenterPhoto(null);
+      setIncomingCenterPhoto(null);
+      setIsIncomingCenterPhotoReady(false);
       return;
     }
 
     const currentCenterPhotoId = centerPhotoIdRef.current;
     const hasCurrentCenterPhoto =
       currentCenterPhotoId !== null && nextVisiblePhotoIds.has(currentCenterPhotoId);
+    const hasDisplayedCenterPhoto = displayedCenterPhotoRef.current !== null;
 
-    if (prioritizedNewPhotoIds.length) {
-      setCenterPhotoId(takeNextNeverShownCenterPhotoId(nextVisiblePhotoIds));
-      return;
-    }
-
-    if (!hasCurrentCenterPhoto) {
+    if (!hasDisplayedCenterPhoto && !hasCurrentCenterPhoto) {
       setCenterPhotoId(
         takeNextNeverShownCenterPhotoId(nextVisiblePhotoIds) ?? visiblePhotos[0].id,
       );
@@ -189,14 +191,14 @@ export function LiveScreen({
   }, [visiblePhotos]);
 
   useEffect(() => {
-    if (!showPhotos || visiblePhotos.length <= 1) return;
+    if (!showPhotos || !displayedCenterPhoto || incomingCenterPhoto) return;
 
     const rotation = window.setInterval(() => {
       setCenterPhotoId((currentPhotoId) => getNextCenterPhotoId(currentPhotoId));
     }, CENTER_PHOTO_INTERVAL_MS);
 
     return () => window.clearInterval(rotation);
-  }, [showPhotos, visiblePhotos.length]);
+  }, [showPhotos, displayedCenterPhoto?.id, incomingCenterPhoto?.id]);
 
   useEffect(() => {
     if (!displayedCenterPhoto) return;
@@ -314,14 +316,14 @@ export function LiveScreen({
     shownCenterPhotoIdsRef.current.push(photoId);
   }
 
-  if (!showPhotos) {
+  if (!showPhotos || !visiblePhotos.length) {
     return (
       <LiveEmptyState
         guestUrl={guestUrl}
         title={event.title}
         accessCode={guestAccessCode}
         explanatoryText={explanatoryText}
-        showPhotoHint={false}
+        showPhotoHint={showPhotos}
       />
     );
   }
@@ -391,26 +393,7 @@ export function LiveScreen({
                 ) : null}
               </figure>
             </div>
-          ) : (
-            <div className="relative grid justify-items-center gap-6 text-center">
-              <div className="rounded-[1.5rem] bg-white p-4 shadow-glow">
-                <QRCodeCanvas value={guestUrl} size={220} marginSize={2} />
-              </div>
-              <div>
-                <h2 className="text-3xl font-semibold">Сканируйте QR и добавляйте фото</h2>
-                {guestAccessCode ? (
-                  <p className="mt-3 text-2xl font-semibold tracking-[0.18em] text-gold">
-                    {guestAccessCode}
-                  </p>
-                ) : null}
-                {explanatoryText ? (
-                  <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-white/68">
-                    {explanatoryText}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          )}
+          ) : null}
         </section>
 
       </main>
