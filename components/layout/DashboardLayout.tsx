@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { AppFooter } from "@/components/legal/AppFooter";
+import { CookieNotice } from "@/components/legal/CookieNotice";
 import { AppHeader } from "./AppHeader";
 
 export function DashboardLayout({
@@ -9,9 +11,13 @@ export function DashboardLayout({
   email?: string | null;
 }) {
   return (
-    <div className="min-h-screen bg-ivory">
+    <div className="flex min-h-screen flex-col bg-ivory">
       <AppHeader email={email} />
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:py-10">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-10">
+        {children}
+      </main>
+      <AppFooter />
+      <CookieNotice />
     </div>
   );
 }

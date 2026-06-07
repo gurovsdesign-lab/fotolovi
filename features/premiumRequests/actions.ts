@@ -26,7 +26,7 @@ export async function submitPremiumRequestAction(
   const selectedPackage = getPremiumPackage(packageId);
 
   if (!selectedPackage) {
-    return { error: "Выберите пакет premium мероприятий" };
+    return { error: "Выберите пакет премиум-мероприятий" };
   }
 
   if (!contact) {

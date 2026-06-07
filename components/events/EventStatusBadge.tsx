@@ -5,7 +5,8 @@ import {
 } from "@/lib/eventStatus";
 import { cn } from "@/lib/utils";
 
-export const eventPillClassName = "inline-flex h-8 w-max items-center rounded-full px-3 text-xs font-medium";
+export const eventPillClassName =
+  "inline-flex h-8 w-max items-center rounded-full px-3 text-xs font-medium";
 
 export function EventStatusBadge({
   status,
@@ -20,7 +21,8 @@ export function EventStatusBadge({
         eventPillClassName,
         status === "current" && "bg-action text-white shadow-sm",
         status === "planned" && "bg-ivory text-ink",
-        (status === "recent" || status === "storage" || status === "completed") && "bg-ivory text-muted",
+        (status === "recent" || status === "storage" || status === "completed") &&
+          "bg-ivory text-muted",
       )}
     >
       {descriptive ? getEventStatusDescription(status) : getEventStatusLabel(status)}
@@ -36,7 +38,7 @@ export function EventTypeBadge({ isPaid }: { isPaid: boolean }) {
         isPaid ? "text-gold" : "text-stone-500",
       )}
     >
-      {isPaid ? "Premium" : "Тест"}
+      {isPaid ? "Премиум" : "Тест"}
     </span>
   );
 }

@@ -8,7 +8,10 @@ export type AuthState = {
   error?: string;
 };
 
-export async function signInAction(_prevState: AuthState, formData: FormData): Promise<AuthState> {
+export async function signInAction(
+  _prevState: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
   const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
   const next = String(formData.get("next") || "/dashboard");
@@ -24,20 +27,23 @@ export async function signInAction(_prevState: AuthState, formData: FormData): P
     signInResult = await supabase.auth.signInWithPassword({ email, password });
   } catch (error) {
     logAuthError("SIGN IN ERROR", error);
-    return { error: `Не удалось войти: ${formatAuthError(error)}` };
+    return { error: getReadableAuthError(error, "signin") };
   }
 
   const { error } = signInResult;
 
   if (error) {
     logAuthError("SIGN IN ERROR", error);
-    return { error: `Не удалось войти: ${formatAuthError(error)}` };
+    return { error: getReadableAuthError(error, "signin") };
   }
 
   redirect(next);
 }
 
-export async function signUpAction(_prevState: AuthState, formData: FormData): Promise<AuthState> {
+export async function signUpAction(
+  _prevState: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
   const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
   const fullName = String(formData.get("fullName") || "").trim();
@@ -67,14 +73,14 @@ export async function signUpAction(_prevState: AuthState, formData: FormData): P
     });
   } catch (error) {
     logAuthError("SIGN UP ERROR", error);
-    return { error: `Не удалось зарегистрироваться: ${formatAuthError(error)}` };
+    return { error: getReadableAuthError(error, "signup") };
   }
 
   const { data, error } = signUpResult;
 
   if (error) {
     logAuthError("SIGN UP ERROR", error);
-    return { error: `Не удалось зарегистрироваться: ${formatAuthError(error)}` };
+    return { error: getReadableAuthError(error, "signup") };
   }
 
   if (data.user) {
@@ -84,13 +90,13 @@ export async function signUpAction(_prevState: AuthState, formData: FormData): P
       full_name: fullName || null,
       role: "user",
     } as any);
-  
+
     await supabase.from("credits").upsert({
       user_id: data.user.id,
       amount: 0,
     } as any);
   }
-  
+
   redirect("/dashboard");
 }
 
@@ -110,20 +116,41 @@ async function getRequestOrigin() {
   const proto = headerStore.get("x-forwarded-proto") || "https";
 
   if (host) return `${proto}://${host}`;
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/+$/g, "");
+  if (process.env.NEXT_PUBLIC_SITE_URL)
+    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/+$/g, "");
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
 
   return "http://localhost:3000";
 }
 
-function formatAuthError(error: unknown) {
+function getReadableAuthError(error: unknown, mode: "signin" | "signup") {
   const details = getAuthErrorDetails(error);
-  const message = details.message || "неизвестная ошибка Supabase Auth";
-  const parts = [message, details.code ? `code: ${details.code}` : null, details.status ? `status: ${details.status}` : null]
-    .filter(Boolean)
-    .join(" ");
+  const code = details.code?.toLowerCase();
+  const message = details.message?.toLowerCase() || "";
 
-  return parts;
+  if (code === "user_already_exists" || message.includes("user already registered")) {
+    return "Аккаунт с этой почтой уже существует. Войдите или используйте другую почту.";
+  }
+
+  if (code === "invalid_credentials" || message.includes("invalid login credentials")) {
+    return "Не удалось войти. Проверьте почту и пароль.";
+  }
+
+  if (message.includes("email not confirmed")) {
+    return "Подтвердите электронную почту, чтобы войти.";
+  }
+
+  if (message.includes("password")) {
+    return "Проверьте пароль и попробуйте ещё раз.";
+  }
+
+  if (message.includes("email")) {
+    return "Проверьте электронную почту и попробуйте ещё раз.";
+  }
+
+  return mode === "signup"
+    ? "Не удалось зарегистрироваться. Попробуйте ещё раз."
+    : "Не удалось войти. Попробуйте ещё раз.";
 }
 
 function logAuthError(label: string, error: unknown) {

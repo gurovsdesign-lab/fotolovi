@@ -1,7 +1,15 @@
 "use client";
 
-import { FormEvent, useActionState, useState } from "react";
+import { FormEvent, useActionState, useEffect, useState } from "react";
 import { CheckCircle2, Send, X } from "lucide-react";
+import { ConsentCheckbox } from "@/components/legal/ConsentCheckbox";
+import {
+  PREMIUM_CONTACT_DRAFT_KEY,
+  readSessionJson,
+  type PremiumContactDraft,
+  type PremiumContactSource,
+  writeSessionJson,
+} from "@/components/legal/persistedLegalState";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
@@ -15,11 +23,13 @@ const phoneContactMethods = new Set(["Телефон", "WhatsApp"]);
 
 type PremiumContactRequestModalProps = {
   premiumPackage: PremiumPackage;
+  source: PremiumContactSource;
   onClose: () => void;
 };
 
 export function PremiumContactRequestModal({
   premiumPackage,
+  source,
   onClose,
 }: PremiumContactRequestModalProps) {
   const [state, formAction, pending] = useActionState(
@@ -28,8 +38,63 @@ export function PremiumContactRequestModal({
   );
   const [preferredCommunication, setPreferredCommunication] = useState("Телефон");
   const [contact, setContact] = useState("+7 ");
+  const [comment, setComment] = useState("");
+  const [personalDataAgreement, setPersonalDataAgreement] = useState(false);
   const [clientError, setClientError] = useState("");
+  const [isDraftHydrated, setIsDraftHydrated] = useState(false);
   const isPhoneContact = phoneContactMethods.has(preferredCommunication);
+
+  useEffect(() => {
+    const draft = readSessionJson<PremiumContactDraft>(PREMIUM_CONTACT_DRAFT_KEY);
+
+    if (
+      !draft?.isOpen ||
+      draft.source !== source ||
+      draft.packageId !== premiumPackage.id
+    ) {
+      setIsDraftHydrated(true);
+      return;
+    }
+
+    setPreferredCommunication(draft.preferredCommunication || "Телефон");
+    setContact(draft.contact || "+7 ");
+    setComment(draft.comment || "");
+    setPersonalDataAgreement(Boolean(draft.personalDataAgreement));
+    setIsDraftHydrated(true);
+  }, [premiumPackage.id, source]);
+
+  useEffect(() => {
+    if (!isDraftHydrated) return;
+
+    saveDraft(personalDataAgreement);
+  }, [
+    comment,
+    contact,
+    isDraftHydrated,
+    personalDataAgreement,
+    preferredCommunication,
+    premiumPackage.id,
+    source,
+  ]);
+
+  function saveDraft(nextPersonalDataAgreement: boolean) {
+    const form = document.getElementById(
+      "premium-contact-request-form",
+    ) as HTMLFormElement | null;
+    const formData = form ? new FormData(form) : null;
+
+    writeSessionJson<PremiumContactDraft>(PREMIUM_CONTACT_DRAFT_KEY, {
+      isOpen: true,
+      source,
+      packageId: premiumPackage.id,
+      preferredCommunication: String(
+        formData?.get("preferredCommunication") || preferredCommunication,
+      ),
+      contact: String(formData?.get("contact") || contact),
+      comment: String(formData?.get("comment") || comment),
+      personalDataAgreement: nextPersonalDataAgreement,
+    });
+  }
 
   function updatePreferredCommunication(nextMethod: string) {
     setPreferredCommunication(nextMethod);
@@ -57,7 +122,7 @@ export function PremiumContactRequestModal({
 
     if (!isPhoneContact && !contact.trim()) {
       event.preventDefault();
-      setClientError("Укажите Telegram username");
+      setClientError("Укажите имя пользователя в Telegram");
       return;
     }
 
@@ -88,7 +153,7 @@ export function PremiumContactRequestModal({
             type="button"
             className="inline-flex size-10 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-black/5 hover:text-ink"
             onClick={onClose}
-            aria-label="Закрыть заявку на premium"
+            aria-label="Закрыть заявку на премиум"
           >
             <X className="size-5" />
           </button>
@@ -98,7 +163,7 @@ export function PremiumContactRequestModal({
           <div className="mt-6 rounded-xl bg-[#F7FBF7] p-5 text-sm leading-6 text-muted">
             <CheckCircle2 className="size-9 text-green-600" />
             <p className="mt-4 font-medium text-ink">
-              Мы получили заявку на premium пакет.
+              Мы получили заявку на премиум-пакет.
             </p>
             <p className="mt-2">
               Свяжемся лично, поможем подключиться и отправим информацию по оплате удобным
@@ -111,11 +176,12 @@ export function PremiumContactRequestModal({
         ) : (
           <>
             <p className="mt-4 text-sm leading-6 text-muted">
-              Оставьте контакт, и мы лично поможем подключить premium: уточним детали
+              Оставьте контакт, и мы лично поможем подключить премиум: уточним детали
               мероприятий, согласуем удобный способ оплаты и начислим пакет на ваш
               аккаунт.
             </p>
             <form
+              id="premium-contact-request-form"
               action={formAction}
               onSubmit={validateBeforeSubmit}
               className="mt-6 grid gap-4"
@@ -142,8 +208,8 @@ export function PremiumContactRequestModal({
               <Input
                 id="premium-contact"
                 name="contact"
-                label={isPhoneContact ? "Номер для связи" : "Telegram username"}
-                placeholder={isPhoneContact ? "+7 999 123-45-67" : "@example_username"}
+                label={isPhoneContact ? "Номер для связи" : "Имя пользователя в Telegram"}
+                placeholder={isPhoneContact ? "+7 999 123-45-67" : "@primer"}
                 value={contact}
                 onChange={(event) => updateContact(event.target.value)}
                 required
@@ -158,8 +224,8 @@ export function PremiumContactRequestModal({
                 aria-invalid={Boolean(clientError)}
                 hint={
                   isPhoneContact
-                    ? "Используем только для персонального подключения premium."
-                    : "Укажите username в Telegram."
+                    ? "Используем только для персонального подключения премиум."
+                    : "Укажите имя пользователя в Telegram."
                 }
               />
               <label className="grid gap-2 text-sm text-ink" htmlFor="premium-comment">
@@ -170,6 +236,8 @@ export function PremiumContactRequestModal({
                   id="premium-comment"
                   name="comment"
                   rows={4}
+                  value={comment}
+                  onChange={(event) => setComment(event.target.value)}
                   className="resize-none rounded-xl border border-black/10 bg-white px-4 py-3 text-base outline-none transition placeholder:text-muted/70 focus:border-action focus:ring-4 focus:ring-action/10"
                   placeholder="Например: свадьбы, корпоративы, выпускные, серия мероприятий агентства"
                 />
@@ -177,6 +245,12 @@ export function PremiumContactRequestModal({
               {clientError || state.error ? (
                 <p className="text-sm text-red-600">{clientError || state.error}</p>
               ) : null}
+              <ConsentCheckbox
+                id="premium-personal-data-agreement"
+                checked={personalDataAgreement}
+                onCheckedChange={setPersonalDataAgreement}
+                onBeforeLegalNavigate={saveDraft}
+              />
               <Button disabled={pending} className="w-full sm:w-auto">
                 <Send className="size-4" />
                 {pending ? "Отправляем..." : "Отправить заявку"}

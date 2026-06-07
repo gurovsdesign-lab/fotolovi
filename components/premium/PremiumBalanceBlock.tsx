@@ -1,17 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Sparkles } from "lucide-react";
+import {
+  PREMIUM_CONTACT_DRAFT_KEY,
+  readSessionJson,
+  removeSessionValue,
+  type PremiumContactDraft,
+} from "@/components/legal/persistedLegalState";
 import { Button } from "@/components/ui/Button";
 import { PremiumContactRequestModal } from "@/components/premium/PremiumContactRequestModal";
 import { PremiumPackagesModal } from "@/components/premium/PremiumPackagesModal";
-import type { PremiumPackage } from "@/lib/premiumPackages";
+import { PREMIUM_PACKAGES, type PremiumPackage } from "@/lib/premiumPackages";
 
 export function PremiumBalanceBlock({ credits }: { credits: number }) {
   const [isPackagesOpen, setIsPackagesOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<PremiumPackage | null>(null);
   const isEmpty = credits <= 0;
   const isLow = credits === 1;
+
+  useEffect(() => {
+    const draft = readSessionJson<PremiumContactDraft>(PREMIUM_CONTACT_DRAFT_KEY);
+    if (!draft?.isOpen || draft.source !== "balance") return;
+
+    const restoredPackage = PREMIUM_PACKAGES.find(
+      (premiumPackage) => premiumPackage.id === draft.packageId,
+    );
+
+    if (restoredPackage) {
+      setSelectedPackage(restoredPackage);
+      setIsPackagesOpen(false);
+    }
+  }, []);
+
+  function closeContactRequest() {
+    removeSessionValue(PREMIUM_CONTACT_DRAFT_KEY);
+    setSelectedPackage(null);
+  }
 
   return (
     <>
@@ -25,7 +50,7 @@ export function PremiumBalanceBlock({ credits }: { credits: number }) {
           <div>
             <div className="flex items-center gap-2">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">
-                Premium баланс
+                Премиум-баланс
               </p>
               {isEmpty || isLow ? <Sparkles className="size-4 text-gold" /> : null}
             </div>
@@ -35,16 +60,16 @@ export function PremiumBalanceBlock({ credits }: { credits: number }) {
             </div>
             {isEmpty ? (
               <p className="mt-2 max-w-sm text-sm leading-5 text-muted">
-                Пополните баланс, чтобы создавать premium мероприятия для реальных
+                Пополните баланс, чтобы создавать премиум-мероприятия для реальных
                 клиентов.
               </p>
             ) : isLow ? (
               <p className="mt-2 max-w-sm text-sm leading-5 text-muted">
-                Осталось одно premium мероприятие. Удобнее пополнить баланс заранее.
+                Осталось одно премиум-мероприятие. Удобнее пополнить баланс заранее.
               </p>
             ) : (
               <p className="mt-2 max-w-sm text-sm leading-5 text-muted">
-                Premium мероприятия: 500 фото на каждое событие.
+                Премиум-мероприятия: 500 фото на каждое событие.
               </p>
             )}
           </div>
@@ -72,7 +97,8 @@ export function PremiumBalanceBlock({ credits }: { credits: number }) {
       {selectedPackage ? (
         <PremiumContactRequestModal
           premiumPackage={selectedPackage}
-          onClose={() => setSelectedPackage(null)}
+          source="balance"
+          onClose={closeContactRequest}
         />
       ) : null}
     </>

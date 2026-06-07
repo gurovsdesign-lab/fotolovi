@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { GuestAccessGate } from "@/components/events/GuestAccessGate";
+import { AppFooter } from "@/components/legal/AppFooter";
+import { CookieNotice } from "@/components/legal/CookieNotice";
 import { PhotoDownloadAllButton, PhotoGrid } from "@/components/photos/PhotoGrid";
 import { PhotoUploader } from "@/components/photos/PhotoUploader";
 import {
@@ -9,7 +11,11 @@ import {
   type GuestAccessMode,
   type ModerationMode,
 } from "@/lib/eventSettings";
-import { getEventLifecycle, getGuestLifecycleMessage, type EventLifecycle } from "@/lib/eventStatus";
+import {
+  getEventLifecycle,
+  getGuestLifecycleMessage,
+  type EventLifecycle,
+} from "@/lib/eventStatus";
 import { createPublicSupabaseClient } from "@/lib/supabasePublic";
 import { formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -32,7 +38,13 @@ type GuestEvent = {
   moderation_mode: ModerationMode;
 };
 
-type GuestEventRow = Omit<GuestEvent, "guest_access_code_enabled" | "guest_access_code" | "guest_access_mode" | "moderation_mode"> & {
+type GuestEventRow = Omit<
+  GuestEvent,
+  | "guest_access_code_enabled"
+  | "guest_access_code"
+  | "guest_access_mode"
+  | "moderation_mode"
+> & {
   guest_access_code_enabled?: boolean | null;
   guest_access_code?: string | null;
   guest_access_mode?: string | null;
@@ -43,7 +55,11 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
-export default async function GuestEventPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function GuestEventPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
   const event = await getGuestEventBySlug(slug);
 
@@ -59,70 +75,89 @@ export default async function GuestEventPage({ params }: { params: Promise<{ slu
   }
 
   const lifecycleMessage = getGuestLifecycleMessage(lifecycle);
-  const needsGuestAccess = lifecycle.permissions.canUpload || lifecycle.permissions.canViewGallery;
+  const needsGuestAccess =
+    lifecycle.permissions.canUpload || lifecycle.permissions.canViewGallery;
   const hasAccess = needsGuestAccess ? await hasValidGuestAccess(event) : true;
   const canUpload = hasAccess && lifecycle.permissions.canUpload;
-  const canViewGallery = hasAccess && canGuestViewGallery(event.guest_access_mode, lifecycle);
-  const canDownloadAll = hasAccess && canGuestDownloadAll(event.guest_access_mode, lifecycle);
+  const canViewGallery =
+    hasAccess && canGuestViewGallery(event.guest_access_mode, lifecycle);
+  const canDownloadAll =
+    hasAccess && canGuestDownloadAll(event.guest_access_mode, lifecycle);
   const [photos, count] = await Promise.all([
     hasAccess && canViewGallery ? getGuestEventPhotos(event.id) : Promise.resolve([]),
     canUpload ? getGuestPhotoCount(event.id) : Promise.resolve(0),
   ]);
 
   return (
-    <main className="min-h-screen bg-ivory px-4 py-8">
-      <div className="mx-auto grid w-full max-w-4xl gap-7">
-        <section className="rounded-[2rem] bg-white p-6 shadow-soft sm:p-8">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">
-            Фотоальбом мероприятия
-          </p>
-          <h1 className="mt-3 min-w-0 font-display text-4xl leading-tight text-ink [overflow-wrap:anywhere] sm:text-6xl">
-            {event.title}
-          </h1>
-          <p className="mt-3 text-muted">{formatDate(event.event_date)}</p>
-        </section>
-
-        {lifecycleMessage ? <GuestLifecycleNotice message={lifecycleMessage} /> : null}
-
-        {!hasAccess ? (
-          <GuestAccessGate slug={event.slug} />
-        ) : canUpload ? (
-          <PhotoUploader
-            eventId={event.id}
-            eventSlug={event.slug}
-            photoLimit={event.photo_limit}
-            currentCount={count}
-            isPremoderated={event.moderation_mode === "premoderation"}
-          />
-        ) : null}
-
-        {hasAccess && canViewGallery ? (
-          <section className="grid gap-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-2xl font-semibold text-ink">Альбом</h2>
-                <p className="mt-1 text-sm text-muted">{photos.length} фото</p>
-              </div>
-              {canDownloadAll ? (
-                <PhotoDownloadAllButton photos={photos} eventTitle={event.title} className="sm:items-end" />
-              ) : null}
-            </div>
-            <PhotoGrid photos={photos} eventId={event.id} eventTitle={event.title} />
+    <div className="flex min-h-screen flex-col bg-ivory">
+      <main className="flex-1 px-4 py-8">
+        <div className="mx-auto grid w-full max-w-4xl gap-7">
+          <section className="rounded-[2rem] bg-white p-6 shadow-soft sm:p-8">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">
+              Фотоальбом мероприятия
+            </p>
+            <h1 className="mt-3 min-w-0 font-display text-4xl leading-tight text-ink [overflow-wrap:anywhere] sm:text-6xl">
+              {event.title}
+            </h1>
+            <p className="mt-3 text-muted">{formatDate(event.event_date)}</p>
           </section>
-        ) : null}
-      </div>
-    </main>
+
+          {lifecycleMessage ? <GuestLifecycleNotice message={lifecycleMessage} /> : null}
+
+          {!hasAccess ? (
+            <GuestAccessGate slug={event.slug} />
+          ) : canUpload ? (
+            <PhotoUploader
+              eventId={event.id}
+              eventSlug={event.slug}
+              photoLimit={event.photo_limit}
+              currentCount={count}
+              isPremoderated={event.moderation_mode === "premoderation"}
+            />
+          ) : null}
+
+          {hasAccess && canViewGallery ? (
+            <section className="grid gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold text-ink">Альбом</h2>
+                  <p className="mt-1 text-sm text-muted">{photos.length} фото</p>
+                </div>
+                {canDownloadAll ? (
+                  <PhotoDownloadAllButton
+                    photos={photos}
+                    eventTitle={event.title}
+                    className="sm:items-end"
+                  />
+                ) : null}
+              </div>
+              <PhotoGrid photos={photos} eventId={event.id} eventTitle={event.title} />
+            </section>
+          ) : null}
+        </div>
+      </main>
+      <AppFooter />
+      <CookieNotice />
+    </div>
   );
 }
 
 function UnavailableGuestEvent({ message }: { message: string | null }) {
   return (
-    <main className="grid min-h-screen place-items-center bg-ivory px-4 py-8 text-center">
-      <section className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-soft sm:p-8">
-        <h1 className="font-display text-4xl text-ink sm:text-5xl">Мероприятие завершено</h1>
-        {message ? <p className="mt-4 text-sm leading-6 text-muted">{message}</p> : null}
-      </section>
-    </main>
+    <div className="flex min-h-screen flex-col bg-ivory">
+      <main className="grid flex-1 place-items-center px-4 py-8 text-center">
+        <section className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-soft sm:p-8">
+          <h1 className="font-display text-4xl text-ink sm:text-5xl">
+            Мероприятие завершено
+          </h1>
+          {message ? (
+            <p className="mt-4 text-sm leading-6 text-muted">{message}</p>
+          ) : null}
+        </section>
+      </main>
+      <AppFooter />
+      <CookieNotice />
+    </div>
   );
 }
 
@@ -188,7 +223,9 @@ async function getGuestEventPhotos(eventId: string): Promise<Photo[]> {
     .order("uploaded_at", { ascending: false });
 
   if (error) {
-    throw new Error(`Failed to load guest event photos with public anon key: ${error.message}`);
+    throw new Error(
+      `Failed to load guest event photos with public anon key: ${error.message}`,
+    );
   }
 
   return data;
@@ -202,7 +239,9 @@ async function getGuestPhotoCount(eventId: string) {
     .eq("event_id", eventId);
 
   if (error) {
-    throw new Error(`Failed to load guest photo count with public anon key: ${error.message}`);
+    throw new Error(
+      `Failed to load guest photo count with public anon key: ${error.message}`,
+    );
   }
 
   return count ?? 0;

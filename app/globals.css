@@ -35,6 +35,12 @@ img {
   max-width: 100%;
 }
 
+.legal-title {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+}
+
 ::selection {
   background: rgba(74, 108, 247, 0.18);
 }
@@ -254,7 +260,11 @@ img {
 }
 
 .live-empty-glow {
-  background: radial-gradient(circle at 50% 50%, rgba(214, 179, 106, 0.17), transparent 40rem);
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(214, 179, 106, 0.17),
+    transparent 40rem
+  );
   animation: live-glow-drift 18s ease-in-out infinite;
   transform-origin: center;
 }

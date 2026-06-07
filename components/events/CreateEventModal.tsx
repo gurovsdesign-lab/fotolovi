@@ -1,7 +1,13 @@
 "use client";
 
-import { FormEvent, useActionState, useState } from "react";
+import { FormEvent, useActionState, useEffect, useState } from "react";
 import { CalendarPlus, Check, Sparkles, X } from "lucide-react";
+import {
+  PREMIUM_CONTACT_DRAFT_KEY,
+  readSessionJson,
+  removeSessionValue,
+  type PremiumContactDraft,
+} from "@/components/legal/persistedLegalState";
 import { createEventAction, type EventActionState } from "@/features/events/actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -10,7 +16,7 @@ import { PremiumContactRequestModal } from "@/components/premium/PremiumContactR
 import { PremiumPackagesModal } from "@/components/premium/PremiumPackagesModal";
 import { MAX_EVENT_TITLE_LENGTH } from "@/lib/constants";
 import { getTodayDateString } from "@/lib/eventSettings";
-import type { PremiumPackage } from "@/lib/premiumPackages";
+import { PREMIUM_PACKAGES, type PremiumPackage } from "@/lib/premiumPackages";
 
 const initialState: EventActionState = {};
 
@@ -25,6 +31,25 @@ export function CreateEventModal({ credits }: { credits: number }) {
     "closed" | "type" | "confirmPremium" | "packages"
   >("closed");
   const [selectedPackage, setSelectedPackage] = useState<PremiumPackage | null>(null);
+
+  useEffect(() => {
+    const draft = readSessionJson<PremiumContactDraft>(PREMIUM_CONTACT_DRAFT_KEY);
+    if (!draft?.isOpen || draft.source !== "create-event") return;
+
+    const restoredPackage = PREMIUM_PACKAGES.find(
+      (premiumPackage) => premiumPackage.id === draft.packageId,
+    );
+
+    if (restoredPackage) {
+      setSelectedPackage(restoredPackage);
+      setFlowStep("closed");
+    }
+  }, []);
+
+  function closeContactRequest() {
+    removeSessionValue(PREMIUM_CONTACT_DRAFT_KEY);
+    setSelectedPackage(null);
+  }
 
   function openTypeSelection(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,7 +66,9 @@ export function CreateEventModal({ credits }: { credits: number }) {
     }
 
     if (nextTitle.length > MAX_EVENT_TITLE_LENGTH) {
-      setClientError(`Название должно быть не длиннее ${MAX_EVENT_TITLE_LENGTH} символов`);
+      setClientError(
+        `Название должно быть не длиннее ${MAX_EVENT_TITLE_LENGTH} символов`,
+      );
       return;
     }
 
@@ -86,7 +113,9 @@ export function CreateEventModal({ credits }: { credits: number }) {
             label="Название мероприятия"
             placeholder="Свадьба Анны и Михаила"
             value={title}
-            onChange={(event) => setTitle(event.target.value.slice(0, MAX_EVENT_TITLE_LENGTH))}
+            onChange={(event) =>
+              setTitle(event.target.value.slice(0, MAX_EVENT_TITLE_LENGTH))
+            }
             maxLength={MAX_EVENT_TITLE_LENGTH}
             hint={`${title.length}/${MAX_EVENT_TITLE_LENGTH} символов`}
           />
@@ -148,7 +177,8 @@ export function CreateEventModal({ credits }: { credits: number }) {
       {selectedPackage ? (
         <PremiumContactRequestModal
           premiumPackage={selectedPackage}
-          onClose={() => setSelectedPackage(null)}
+          source="create-event"
+          onClose={closeContactRequest}
         />
       ) : null}
     </>
@@ -227,14 +257,14 @@ function EventTypeModal({
             </span>
             <span>
               <span className="block text-xl font-semibold text-ink">
-                Premium мероприятие
+                Премиум-мероприятие
               </span>
               <span className="mt-2 block text-sm leading-6 text-muted">
                 Лимит 500 фото. Подходит для реальных мероприятий и работы с клиентами.
               </span>
             </span>
             <span className="mt-auto text-sm font-medium text-action">
-              Выбрать premium
+              Выбрать премиум
             </span>
           </button>
         </div>
@@ -267,7 +297,7 @@ function ConfirmPremiumModal({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">
-              Premium мероприятие
+              Премиум-мероприятие
             </p>
             <h2
               id="premium-confirm-title"
@@ -278,11 +308,11 @@ function ConfirmPremiumModal({
           </div>
           <CloseButton
             onClose={onClose}
-            label="Закрыть подтверждение premium мероприятия"
+            label="Закрыть подтверждение премиум-мероприятия"
           />
         </div>
         <p className="mt-4 text-sm leading-6 text-muted">
-          Создать premium мероприятие и списать 1 premium мероприятие из баланса?
+          Создать премиум-мероприятие и списать 1 премиум-мероприятие из баланса?
         </p>
         <form action={formAction} className="mt-6 flex flex-col gap-3 sm:flex-row">
           <input type="hidden" name="title" value={title} />
@@ -290,7 +320,7 @@ function ConfirmPremiumModal({
           <input type="hidden" name="eventType" value="premium" />
           <Button disabled={pending} className="w-full sm:w-auto">
             <Sparkles className="size-4" />
-            {pending ? "Создаём..." : "Создать premium"}
+            {pending ? "Создаём..." : "Создать премиум"}
           </Button>
           <Button
             type="button"

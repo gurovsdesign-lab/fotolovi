@@ -23,7 +23,7 @@ export function PremiumPackagesModal({
         <div className="flex items-start justify-between gap-4">
           <div className="max-w-3xl">
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">
-              Premium мероприятия
+              Премиум-мероприятия
             </p>
             <h2
               id="premium-packages-title"
@@ -32,7 +32,7 @@ export function PremiumPackagesModal({
               Выберите пакет для персонального подключения
             </h2>
             <p className="mt-3 text-sm leading-6 text-muted">
-              Во всех premium пакетах одинаковые возможности и лимит 500 фото на каждое
+              Во всех премиум-пакетах одинаковые возможности и лимит 500 фото на каждое
               мероприятие. Отличается только количество мероприятий: крупные пакеты
               выгоднее для ведущих и агентств, которые проводят события регулярно.
             </p>
@@ -41,7 +41,7 @@ export function PremiumPackagesModal({
             type="button"
             className="inline-flex size-10 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-black/5 hover:text-ink"
             onClick={onClose}
-            aria-label="Закрыть выбор premium пакета"
+            aria-label="Закрыть выбор премиум-пакета"
           >
             <X className="size-5" />
           </button>

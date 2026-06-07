@@ -53,7 +53,7 @@ export default async function AdminPage({
 
         <Card>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-2xl font-semibold">Premium</h2>
+            <h2 className="text-2xl font-semibold">Премиум</h2>
             <div className="inline-flex rounded-xl bg-ivory p-1">
               <AdminTab
                 href="/admin"
@@ -145,7 +145,7 @@ function CreditsTable({ profiles }: { profiles: any[] }) {
     <table className="w-full min-w-[720px] text-left text-sm">
       <thead className="text-muted">
         <tr>
-          <th className="py-3">Email</th>
+          <th className="py-3">Электронная почта</th>
           <th>Role</th>
           <th>Credits</th>
           <th>Дата</th>
@@ -183,7 +183,7 @@ function PremiumRequestsTable({ premiumRequests }: { premiumRequests: any[] }) {
     <table className="w-full min-w-[980px] text-left text-sm">
       <thead className="text-muted">
         <tr>
-          <th className="py-3">Email аккаунта</th>
+          <th className="py-3">Почта аккаунта</th>
           <th>Пакет</th>
           <th>Контакт</th>
           <th>Связь</th>
