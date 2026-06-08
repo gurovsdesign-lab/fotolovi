@@ -65,9 +65,20 @@ type StorageObject = {
   hasKnownSize: boolean;
 };
 
+type StorageDiagnosticSource = "storage-api" | "rpc" | "error";
+
+export type AdminStorageDiagnostics = {
+  source: StorageDiagnosticSource;
+  scannedFoldersCount: number;
+  scannedFilesCount: number;
+  summedBytes: number;
+  lastErrorMessage: string | null;
+};
+
 type StorageObjectResult = {
   objects: StorageObject[];
-  source: "storage api" | "rpc fallback" | "storage schema fallback";
+  diagnostics: AdminStorageDiagnostics;
+  hasUnknownSize?: boolean;
 };
 
 type StorageListItem = {
@@ -126,6 +137,7 @@ export type AdminStorageUsage = {
   objectCount: number;
   isApproximate: boolean;
   note: string | null;
+  diagnostics: AdminStorageDiagnostics;
 };
 
 export type AdminOverview = {
@@ -515,41 +527,69 @@ async function getLiveLaunchCounts(supabase: SupabaseClient, userId: string) {
 async function getStorageUsage(supabase: SupabaseClient): Promise<AdminStorageUsage> {
   const result = await getStorageObjects(supabase);
   logStorageUsageDebug(result);
-  return buildStorageUsage(result.objects);
+  return buildStorageUsage(result.objects, result.diagnostics);
 }
 
 async function getStorageObjects(fallbackSupabase?: SupabaseClient): Promise<StorageObjectResult> {
-  const supabase = createStorageSupabaseClient() ?? fallbackSupabase;
+  const storageClient = createStorageSupabaseClient();
+  const supabase = storageClient.client ?? fallbackSupabase;
 
-  if (!supabase) return { objects: [], source: "storage api" };
+  if (!supabase) {
+    return createStorageObjectResult([], {
+      source: "error",
+      scannedFoldersCount: 0,
+      lastErrorMessage: storageClient.errorMessage ?? "Supabase client is unavailable.",
+    });
+  }
 
   const storageApiResult = await getStorageObjectsFromStorageApi(supabase);
+  const storageApiBytes = sumStorageObjectBytes(storageApiResult.objects);
   if (
     storageApiResult.objects.length > 0 &&
     !storageApiResult.hasUnknownSize &&
-    sumStorageObjectBytes(storageApiResult.objects) > 0
+    storageApiBytes > 0
   ) {
-    return { objects: storageApiResult.objects, source: "storage api" };
+    return storageApiResult;
   }
 
-  const rpcObjects = await getStorageObjectsFromRpc(supabase);
-  if (rpcObjects.length && sumStorageObjectBytes(rpcObjects) > 0) {
-    return { objects: rpcObjects, source: "rpc fallback" };
+  const rpcResult = await getStorageObjectsFromRpc(supabase);
+  if (rpcResult.objects.length && sumStorageObjectBytes(rpcResult.objects) > 0) {
+    return rpcResult;
   }
 
-  const exposedSchemaObjects = await getStorageObjectsFromExposedStorageSchema(supabase);
-  if (exposedSchemaObjects.length) {
-    return { objects: exposedSchemaObjects, source: "storage schema fallback" };
+  const exposedSchemaResult = await getStorageObjectsFromExposedStorageSchema(supabase);
+  if (exposedSchemaResult.objects.length && sumStorageObjectBytes(exposedSchemaResult.objects) > 0) {
+    return exposedSchemaResult;
   }
 
-  return { objects: storageApiResult.objects, source: "storage api" };
+  return createStorageObjectResult(storageApiResult.objects, {
+    source: "error",
+    scannedFoldersCount: storageApiResult.diagnostics.scannedFoldersCount,
+    lastErrorMessage: joinStorageErrors([
+      storageClient.errorMessage ? `service-role: ${storageClient.errorMessage}` : null,
+      storageApiResult.diagnostics.lastErrorMessage
+        ? `storage-api: ${storageApiResult.diagnostics.lastErrorMessage}`
+        : null,
+      rpcResult.diagnostics.lastErrorMessage ? `rpc: ${rpcResult.diagnostics.lastErrorMessage}` : null,
+      exposedSchemaResult.diagnostics.lastErrorMessage
+        ? `storage-schema: ${exposedSchemaResult.diagnostics.lastErrorMessage}`
+        : null,
+    ]),
+  });
 }
 
 async function getStorageObjectsFromStorageApi(supabase: SupabaseClient) {
   const objects: StorageObject[] = [];
   const queuedPrefixes = [""];
   const visitedPrefixes = new Set<string>();
+  const folderPaths: string[] = [];
   let hasUnknownSize = false;
+  let lastErrorMessage: string | null = null;
+
+  console.info("Admin storage scan started", {
+    bucket: PHOTO_BUCKET,
+    source: "storage-api",
+  });
 
   for (let index = 0; index < queuedPrefixes.length; index += 1) {
     const prefix = queuedPrefixes[index];
@@ -567,7 +607,13 @@ async function getStorageObjectsFromStorageApi(supabase: SupabaseClient) {
 
       if (error) {
         logAdminQueryError("storage api objects", error);
-        return { objects, hasUnknownSize: true };
+        lastErrorMessage = error.message;
+        return createStorageObjectResult(objects, {
+          source: "storage-api",
+          scannedFoldersCount: folderPaths.length,
+          lastErrorMessage,
+          hasUnknownSize: true,
+        });
       }
 
       const page = ((data ?? []) as StorageListItem[]).filter((item) => item.name);
@@ -582,6 +628,7 @@ async function getStorageObjectsFromStorageApi(supabase: SupabaseClient) {
           pageSize: page.length,
         });
         hasUnknownSize = true;
+        lastErrorMessage = `Repeated storage api page for prefix "${prefix}" at offset ${offset}.`;
         break;
       }
       pageSignatures.add(pageSignature);
@@ -590,6 +637,7 @@ async function getStorageObjectsFromStorageApi(supabase: SupabaseClient) {
         const name = prefix ? `${prefix}/${item.name}` : item.name;
 
         if (isStorageFolder(item)) {
+          folderPaths.push(name);
           queuedPrefixes.push(name);
           continue;
         }
@@ -608,20 +656,47 @@ async function getStorageObjectsFromStorageApi(supabase: SupabaseClient) {
     }
   }
 
-  return { objects, hasUnknownSize };
+  const result = createStorageObjectResult(objects, {
+    source: "storage-api",
+    scannedFoldersCount: folderPaths.length,
+    lastErrorMessage,
+    hasUnknownSize,
+  });
+
+  console.info("Admin storage scan finished", {
+    bucket: PHOTO_BUCKET,
+    source: result.diagnostics.source,
+    rootFoldersCount: folderPaths.filter((path) => !path.includes("/")).length,
+    firstFolderPath: folderPaths[0] ?? null,
+    fileCount: result.diagnostics.scannedFilesCount,
+    summedBytes: result.diagnostics.summedBytes,
+    lastErrorMessage: result.diagnostics.lastErrorMessage,
+  });
+
+  return result;
 }
 
-async function getStorageObjectsFromRpc(supabase: SupabaseClient): Promise<StorageObject[]> {
+async function getStorageObjectsFromRpc(supabase: SupabaseClient): Promise<StorageObjectResult> {
   const { data, error } = await (supabase as any).rpc("get_storage_bucket_object_sizes", {
     p_bucket_id: PHOTO_BUCKET,
   });
 
   if (error) {
     logAdminQueryError("storage object size rpc", error);
-    return [];
+    console.info("Admin storage rpc finished", {
+      bucket: PHOTO_BUCKET,
+      rows: 0,
+      summedBytes: 0,
+      lastErrorMessage: error.message,
+    });
+    return createStorageObjectResult([], {
+      source: "rpc",
+      scannedFoldersCount: 0,
+      lastErrorMessage: error.message,
+    });
   }
 
-  return ((data ?? []) as StorageObjectSizeRpcRow[]).map((object) => {
+  const objects = ((data ?? []) as StorageObjectSizeRpcRow[]).map((object) => {
     const size = normalizeStorageSizeValue(object.size_bytes);
     return {
       name: object.name,
@@ -629,12 +704,28 @@ async function getStorageObjectsFromRpc(supabase: SupabaseClient): Promise<Stora
       hasKnownSize: size !== null,
     };
   });
+
+  const result = createStorageObjectResult(objects, {
+    source: "rpc",
+    scannedFoldersCount: 0,
+    lastErrorMessage: null,
+  });
+
+  console.info("Admin storage rpc finished", {
+    bucket: PHOTO_BUCKET,
+    rows: result.diagnostics.scannedFilesCount,
+    summedBytes: result.diagnostics.summedBytes,
+    lastErrorMessage: result.diagnostics.lastErrorMessage,
+  });
+
+  return result;
 }
 
 async function getStorageObjectsFromExposedStorageSchema(
   supabase: SupabaseClient,
-): Promise<StorageObject[]> {
+): Promise<StorageObjectResult> {
   const objects: StorageObject[] = [];
+  let lastErrorMessage: string | null = null;
 
   for (let from = 0; ; from += STORAGE_OBJECT_PAGE_SIZE) {
     const { data, error } = await ((supabase as any).schema("storage") as any)
@@ -645,7 +736,12 @@ async function getStorageObjectsFromExposedStorageSchema(
 
     if (error) {
       logAdminQueryError("storage objects", error);
-      return objects;
+      lastErrorMessage = error.message;
+      return createStorageObjectResult(objects, {
+        source: "error",
+        scannedFoldersCount: 0,
+        lastErrorMessage,
+      });
     }
 
     const page = (data ?? []) as StorageObjectRow[];
@@ -661,21 +757,39 @@ async function getStorageObjectsFromExposedStorageSchema(
     if (page.length < STORAGE_OBJECT_PAGE_SIZE) break;
   }
 
-  return objects;
+  return createStorageObjectResult(objects, {
+    source: "error",
+    scannedFoldersCount: 0,
+    lastErrorMessage,
+  });
 }
 
 function createStorageSupabaseClient() {
   try {
-    return createServiceRoleSupabaseClient() as unknown as SupabaseClient;
+    return {
+      client: createServiceRoleSupabaseClient() as unknown as SupabaseClient,
+      errorMessage: null,
+    };
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
     console.error("Failed to create service role client for storage usage", {
-      message: error instanceof Error ? error.message : "Unknown error",
+      message,
     });
-    return null;
+    return {
+      client: null,
+      errorMessage: message,
+    };
   }
 }
 
-function buildStorageUsage(objects: StorageObject[]): AdminStorageUsage {
+function buildStorageUsage(
+  objects: StorageObject[],
+  diagnostics = createStorageDiagnostics(objects, {
+    source: "storage-api",
+    scannedFoldersCount: 0,
+    lastErrorMessage: null,
+  }),
+): AdminStorageUsage {
   const usedBytes = objects.reduce((sum, object) => sum + object.size, 0);
   const limitBytes = getConfiguredStorageLimitBytes();
   const freeBytes = limitBytes === null ? null : Math.max(0, limitBytes - usedBytes);
@@ -691,6 +805,7 @@ function buildStorageUsage(objects: StorageObject[]): AdminStorageUsage {
     usagePercent,
     objectCount: objects.length,
     isApproximate: objects.some((object) => !object.hasKnownSize) || limitBytes === null,
+    diagnostics,
     note:
       limitBytes === null
         ? "Лимит берётся из SUPABASE_STORAGE_LIMIT_BYTES или SUPABASE_STORAGE_LIMIT_GB."
@@ -703,10 +818,49 @@ function buildStorageUsage(objects: StorageObject[]): AdminStorageUsage {
 function logStorageUsageDebug(result: StorageObjectResult) {
   console.info("Admin storage usage calculated", {
     bucket: PHOTO_BUCKET,
-    source: result.source,
-    fileCount: result.objects.length,
-    summedBytes: sumStorageObjectBytes(result.objects),
+    source: result.diagnostics.source,
+    scannedFoldersCount: result.diagnostics.scannedFoldersCount,
+    fileCount: result.diagnostics.scannedFilesCount,
+    summedBytes: result.diagnostics.summedBytes,
+    lastErrorMessage: result.diagnostics.lastErrorMessage,
   });
+}
+
+function createStorageObjectResult(
+  objects: StorageObject[],
+  options: {
+    source: StorageDiagnosticSource;
+    scannedFoldersCount: number;
+    lastErrorMessage: string | null;
+    hasUnknownSize?: boolean;
+  },
+): StorageObjectResult {
+  return {
+    objects,
+    diagnostics: createStorageDiagnostics(objects, options),
+    hasUnknownSize: options.hasUnknownSize,
+  };
+}
+
+function createStorageDiagnostics(
+  objects: StorageObject[],
+  options: {
+    source: StorageDiagnosticSource;
+    scannedFoldersCount: number;
+    lastErrorMessage: string | null;
+  },
+): AdminStorageDiagnostics {
+  return {
+    source: options.source,
+    scannedFoldersCount: options.scannedFoldersCount,
+    scannedFilesCount: objects.length,
+    summedBytes: sumStorageObjectBytes(objects),
+    lastErrorMessage: options.lastErrorMessage,
+  };
+}
+
+function joinStorageErrors(errors: Array<string | null>) {
+  return errors.filter((error): error is string => Boolean(error)).join(" | ") || "Storage scan returned zero bytes.";
 }
 
 function sumStorageObjectBytes(objects: StorageObject[]) {

@@ -201,6 +201,14 @@ function StorageCard({ storage }: { storage: AdminStorageUsage }) {
         />
       </div>
       {storage.note ? <p className="mt-3 text-xs leading-5 text-muted">{storage.note}</p> : null}
+      <p className="mt-3 text-xs leading-5 text-muted">
+        Storage diagnostics: source {storage.diagnostics.source}; folders{" "}
+        {storage.diagnostics.scannedFoldersCount}; files {storage.diagnostics.scannedFilesCount};
+        bytes {storage.diagnostics.summedBytes}
+        {storage.diagnostics.lastErrorMessage
+          ? `; error ${storage.diagnostics.lastErrorMessage}`
+          : ""}
+      </p>
     </Card>
   );
 }
