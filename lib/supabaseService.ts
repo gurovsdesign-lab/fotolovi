@@ -15,6 +15,10 @@ export function createServiceRoleSupabaseClient() {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY must be a server-only secret/service role key.");
   }
 
+  const authorization = serviceRoleKey.startsWith("sb_secret_")
+    ? serviceRoleKey
+    : `Bearer ${serviceRoleKey}`;
+
   return createClient<Database>(url, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
@@ -23,7 +27,7 @@ export function createServiceRoleSupabaseClient() {
     global: {
       headers: {
         apikey: serviceRoleKey,
-        Authorization: `Bearer ${serviceRoleKey}`,
+        Authorization: authorization,
       },
     },
   });

@@ -12,6 +12,7 @@ const ADMIN_PHOTO_GROUP_LIMIT = 8;
 const ADMIN_PHOTOS_PER_GROUP = 8;
 export const ADMIN_USER_PHOTO_PAGE_SIZE = 24;
 const STORAGE_OBJECT_PAGE_SIZE = 1000;
+const STORAGE_OBJECT_PAGE_RETRY_LIMIT = 2;
 const LIVE_LAUNCH_SCAN_LIMIT = 10000;
 
 type QueryError = { message: string } | null;
@@ -87,6 +88,11 @@ type StorageListItem = {
   metadata?: Record<string, unknown> | null;
   size?: unknown;
   file_size?: unknown;
+};
+
+type StorageListPageResult = {
+  data: StorageListItem[] | null;
+  error: QueryError;
 };
 
 type StorageObjectSizeRpcRow = {
@@ -599,11 +605,7 @@ async function getStorageObjectsFromStorageApi(supabase: SupabaseClient) {
     const pageSignatures = new Set<string>();
 
     for (let offset = 0; ; ) {
-      const { data, error } = await supabase.storage.from(PHOTO_BUCKET).list(prefix, {
-        limit: STORAGE_OBJECT_PAGE_SIZE,
-        offset,
-        sortBy: { column: "name", order: "asc" },
-      });
+      const { data, error } = await listStorageObjectsPage(supabase, prefix, offset);
 
       if (error) {
         logAdminQueryError("storage api objects", error);
@@ -674,6 +676,53 @@ async function getStorageObjectsFromStorageApi(supabase: SupabaseClient) {
   });
 
   return result;
+}
+
+async function listStorageObjectsPage(
+  supabase: SupabaseClient,
+  prefix: string,
+  offset: number,
+): Promise<StorageListPageResult> {
+  let lastResult: StorageListPageResult = {
+    data: null,
+    error: { message: "Storage page scan did not run." },
+  };
+
+  for (let attempt = 0; attempt <= STORAGE_OBJECT_PAGE_RETRY_LIMIT; attempt += 1) {
+    const result = await supabase.storage.from(PHOTO_BUCKET).list(prefix, {
+      limit: STORAGE_OBJECT_PAGE_SIZE,
+      offset,
+      sortBy: { column: "name", order: "asc" },
+    });
+    lastResult = {
+      data: result.data as StorageListItem[] | null,
+      error: result.error,
+    };
+
+    if (!isRetryableStorageError(lastResult.error) || attempt === STORAGE_OBJECT_PAGE_RETRY_LIMIT) {
+      return lastResult;
+    }
+
+    console.warn("Retrying admin storage page scan after transient storage error", {
+      bucket: PHOTO_BUCKET,
+      prefix,
+      offset,
+      attempt: attempt + 1,
+      message: lastResult.error?.message,
+    });
+    await waitForStorageRetry(attempt);
+  }
+
+  return lastResult;
+}
+
+function isRetryableStorageError(error: QueryError) {
+  if (!error?.message) return false;
+  return error.message.toLowerCase().includes("fetch failed");
+}
+
+function waitForStorageRetry(attempt: number) {
+  return new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
 }
 
 async function getStorageObjectsFromRpc(supabase: SupabaseClient): Promise<StorageObjectResult> {
