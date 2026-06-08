@@ -3,6 +3,7 @@ import "server-only";
 import { notFound } from "next/navigation";
 import { PHOTO_BUCKET } from "@/lib/constants";
 import { getEventLifecycle, getEventStatusLabel, type EventStatus } from "@/lib/eventStatus";
+import { createServiceRoleSupabaseClient } from "@/lib/supabaseService";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
 
 const ADMIN_USER_LIMIT = 50;
@@ -50,6 +51,11 @@ type PhotoRow = {
   is_hidden: boolean;
   uploaded_at: string;
   events?: EventRow | null;
+};
+
+type StorageObjectRow = {
+  name: string;
+  metadata: Record<string, unknown> | null;
 };
 
 type PremiumRequestRow = {
@@ -433,7 +439,7 @@ async function getUserPhotosPage(
 
   return ((data ?? []) as PhotoRow[]).map((photo) => ({
     ...photo,
-    event_title: photo.events?.title ?? "Мероприятие не найдено",
+    event_title: photo.events ? getEventDisplayTitle(photo.events) : "Мероприятие не найдено",
     event_slug: photo.events?.slug ?? "",
     moderation_status: getPhotoModerationStatus(photo),
   }));
@@ -481,8 +487,11 @@ async function getStorageUsage(supabase: SupabaseClient): Promise<AdminStorageUs
   return buildStorageUsage(await getStorageObjects(supabase));
 }
 
-async function getStorageObjects(supabase: SupabaseClient) {
+async function getStorageObjects(fallbackSupabase?: SupabaseClient) {
   const objects: Array<{ name: string; size: number }> = [];
+  const supabase = createStorageSupabaseClient() ?? fallbackSupabase;
+
+  if (!supabase) return objects;
 
   for (let from = 0; from < STORAGE_OBJECT_SCAN_LIMIT; from += STORAGE_OBJECT_PAGE_SIZE) {
     const { data, error } = await ((supabase as any).schema("storage") as any)
@@ -496,7 +505,7 @@ async function getStorageObjects(supabase: SupabaseClient) {
       return objects;
     }
 
-    const page = (data ?? []) as Array<{ name: string; metadata: Record<string, unknown> | null }>;
+    const page = (data ?? []) as StorageObjectRow[];
     for (const object of page) {
       objects.push({
         name: object.name,
@@ -508,6 +517,17 @@ async function getStorageObjects(supabase: SupabaseClient) {
   }
 
   return objects;
+}
+
+function createStorageSupabaseClient() {
+  try {
+    return createServiceRoleSupabaseClient();
+  } catch (error) {
+    console.error("Failed to create service role client for storage usage", {
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+    return null;
+  }
 }
 
 function buildStorageUsage(objects: Array<{ name: string; size: number }>): AdminStorageUsage {
@@ -722,7 +742,7 @@ function buildPhotoGroups(
     if (!existing) {
       groupsByEventId.set(event.id, {
         eventId: event.id,
-        eventTitle: event.title,
+        eventTitle: getEventDisplayTitle(event),
         eventSlug: event.slug,
         ownerEmail: profileEmailById.get(event.user_id) ?? "Почта не найдена",
         statusLabel,
@@ -759,6 +779,11 @@ function getPhotoModerationStatus(photo: PhotoRow) {
   return "Скрыто";
 }
 
+function getEventDisplayTitle(event: Pick<EventRow, "title" | "slug">) {
+  const title = event.title.trim();
+  return title || event.slug;
+}
+
 function getNestedCount(value: EventRow["photos"]) {
   if (!value) return 0;
   if (Array.isArray(value)) return Number(value[0]?.count ?? 0);
@@ -766,11 +791,15 @@ function getNestedCount(value: EventRow["photos"]) {
 }
 
 function getStorageObjectSize(metadata: Record<string, unknown> | null) {
-  const size = metadata?.size;
-  if (typeof size === "number" && Number.isFinite(size)) return size;
-  if (typeof size === "string") {
-    const parsed = Number(size);
-    if (Number.isFinite(parsed)) return parsed;
+  if (!metadata) return 0;
+
+  for (const key of ["size", "contentLength", "content_length", "Content-Length"]) {
+    const size = metadata[key];
+    if (typeof size === "number" && Number.isFinite(size)) return size;
+    if (typeof size === "string") {
+      const parsed = Number(size);
+      if (Number.isFinite(parsed)) return parsed;
+    }
   }
 
   return 0;

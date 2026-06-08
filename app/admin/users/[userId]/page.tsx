@@ -24,7 +24,7 @@ export default async function AdminUserPage({
   const totalPages = Math.max(1, Math.ceil(detail.photos.total / detail.photos.pageSize));
 
   return (
-    <DashboardLayout email={user.email}>
+    <DashboardLayout email={user.email} wide>
       <div className="grid gap-8">
         <section>
           <Link
@@ -53,11 +53,10 @@ export default async function AdminUserPage({
         <Card>
           <h2 className="text-2xl font-semibold">Мероприятия</h2>
           <div className="mt-5 overflow-x-auto">
-            <table className="w-full min-w-[1120px] text-left text-sm">
+            <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="text-muted">
                 <tr>
                   <th className="py-3">Название</th>
-                  <th>Slug</th>
                   <th>Статус</th>
                   <th>Дата</th>
                   <th>Фото</th>
@@ -73,13 +72,12 @@ export default async function AdminUserPage({
                 {detail.events.length ? (
                   detail.events.map((event) => (
                     <tr key={event.id} className="border-t border-black/5 align-top">
-                      <td className="py-3 pr-4 font-medium">{event.title}</td>
-                      <td className="pr-4">
+                      <td className="py-3 pr-4 font-medium">
                         <Link
                           href={`/event/${event.slug}`}
                           className="text-action transition hover:text-ink"
                         >
-                          {event.slug}
+                          {getEventDisplayTitle(event)}
                         </Link>
                       </td>
                       <td className="pr-4">{event.statusLabel}</td>
@@ -97,7 +95,7 @@ export default async function AdminUserPage({
                   ))
                 ) : (
                   <tr className="border-t border-black/5">
-                    <td colSpan={11} className="py-6 text-center text-muted">
+                    <td colSpan={10} className="py-6 text-center text-muted">
                       Мероприятий пока нет
                     </td>
                   </tr>
@@ -263,6 +261,11 @@ function getAccessModeLabel(
   if (value === "upload_only") return "Только загрузка";
   if (value === "upload_view") return "Загрузка и просмотр";
   return "Загрузка, просмотр и скачивание";
+}
+
+function getEventDisplayTitle(event: { title: string; slug: string }) {
+  const title = event.title.trim();
+  return title || event.slug;
 }
 
 function formatBytes(value: number) {

@@ -29,7 +29,7 @@ export default async function AdminPage({
   const overview = await getAdminOverview({ search: params?.q });
 
   return (
-    <DashboardLayout email={user.email}>
+    <DashboardLayout email={user.email} wide>
       <div className="grid gap-8">
         <section>
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-gold">
@@ -207,7 +207,7 @@ function StorageCard({ storage }: { storage: AdminStorageUsage }) {
 
 function CreditsTable({ profiles }: { profiles: AdminUserRow[] }) {
   return (
-    <table className="w-full min-w-[1220px] text-left text-sm">
+    <table className="w-full min-w-[1080px] text-left text-sm">
       <thead className="text-muted">
         <tr>
           <th className="py-3">Электронная почта</th>
