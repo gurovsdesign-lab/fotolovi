@@ -12,7 +12,6 @@ const ADMIN_PHOTO_GROUP_LIMIT = 8;
 const ADMIN_PHOTOS_PER_GROUP = 8;
 export const ADMIN_USER_PHOTO_PAGE_SIZE = 24;
 const STORAGE_OBJECT_PAGE_SIZE = 1000;
-const STORAGE_OBJECT_SCAN_LIMIT = 10000;
 const LIVE_LAUNCH_SCAN_LIMIT = 10000;
 
 type QueryError = { message: string } | null;
@@ -55,7 +54,28 @@ type PhotoRow = {
 
 type StorageObjectRow = {
   name: string;
+  size?: unknown;
+  file_size?: unknown;
   metadata: Record<string, unknown> | null;
+};
+
+type StorageObject = {
+  name: string;
+  size: number;
+  hasKnownSize: boolean;
+};
+
+type StorageListItem = {
+  name: string;
+  id?: string | null;
+  metadata?: Record<string, unknown> | null;
+  size?: unknown;
+  file_size?: unknown;
+};
+
+type StorageObjectSizeRpcRow = {
+  name: string;
+  size_bytes: number | string | null;
 };
 
 type PremiumRequestRow = {
@@ -488,15 +508,100 @@ async function getStorageUsage(supabase: SupabaseClient): Promise<AdminStorageUs
 }
 
 async function getStorageObjects(fallbackSupabase?: SupabaseClient) {
-  const objects: Array<{ name: string; size: number }> = [];
   const supabase = createStorageSupabaseClient() ?? fallbackSupabase;
 
-  if (!supabase) return objects;
+  if (!supabase) return [];
 
-  for (let from = 0; from < STORAGE_OBJECT_SCAN_LIMIT; from += STORAGE_OBJECT_PAGE_SIZE) {
+  const storageApiResult = await getStorageObjectsFromStorageApi(supabase);
+  if (!storageApiResult.hasUnknownSize) return storageApiResult.objects;
+
+  const rpcObjects = await getStorageObjectsFromRpc(supabase);
+  if (rpcObjects.length) return rpcObjects;
+
+  const exposedSchemaObjects = await getStorageObjectsFromExposedStorageSchema(supabase);
+  if (exposedSchemaObjects.length) return exposedSchemaObjects;
+
+  return storageApiResult.objects;
+}
+
+async function getStorageObjectsFromStorageApi(supabase: SupabaseClient) {
+  const objects: StorageObject[] = [];
+  const queuedPrefixes = [""];
+  const visitedPrefixes = new Set<string>();
+  let hasUnknownSize = false;
+
+  for (let index = 0; index < queuedPrefixes.length; index += 1) {
+    const prefix = queuedPrefixes[index];
+    if (visitedPrefixes.has(prefix)) continue;
+    visitedPrefixes.add(prefix);
+
+    for (let offset = 0; ; offset += STORAGE_OBJECT_PAGE_SIZE) {
+      const { data, error } = await supabase.storage.from(PHOTO_BUCKET).list(prefix, {
+        limit: STORAGE_OBJECT_PAGE_SIZE,
+        offset,
+        sortBy: { column: "name", order: "asc" },
+      });
+
+      if (error) {
+        logAdminQueryError("storage api objects", error);
+        return { objects, hasUnknownSize: true };
+      }
+
+      const page = ((data ?? []) as StorageListItem[]).filter((item) => item.name);
+      for (const item of page) {
+        const name = prefix ? `${prefix}/${item.name}` : item.name;
+
+        if (isStorageFolder(item)) {
+          queuedPrefixes.push(name);
+          continue;
+        }
+
+        const size = getStorageObjectSize(item);
+        const hasKnownSize = size !== null;
+        hasUnknownSize = hasUnknownSize || !hasKnownSize;
+        objects.push({
+          name,
+          size: size ?? 0,
+          hasKnownSize,
+        });
+      }
+
+      if (page.length < STORAGE_OBJECT_PAGE_SIZE) break;
+    }
+  }
+
+  return { objects, hasUnknownSize };
+}
+
+async function getStorageObjectsFromRpc(supabase: SupabaseClient): Promise<StorageObject[]> {
+  const { data, error } = await (supabase as any).rpc("get_storage_bucket_object_sizes", {
+    p_bucket_id: PHOTO_BUCKET,
+  });
+
+  if (error) {
+    logAdminQueryError("storage object size rpc", error);
+    return [];
+  }
+
+  return ((data ?? []) as StorageObjectSizeRpcRow[]).map((object) => {
+    const size = normalizeStorageSizeValue(object.size_bytes);
+    return {
+      name: object.name,
+      size: size ?? 0,
+      hasKnownSize: size !== null,
+    };
+  });
+}
+
+async function getStorageObjectsFromExposedStorageSchema(
+  supabase: SupabaseClient,
+): Promise<StorageObject[]> {
+  const objects: StorageObject[] = [];
+
+  for (let from = 0; ; from += STORAGE_OBJECT_PAGE_SIZE) {
     const { data, error } = await ((supabase as any).schema("storage") as any)
       .from("objects")
-      .select("name,metadata")
+      .select("*")
       .eq("bucket_id", PHOTO_BUCKET)
       .range(from, from + STORAGE_OBJECT_PAGE_SIZE - 1);
 
@@ -507,9 +612,11 @@ async function getStorageObjects(fallbackSupabase?: SupabaseClient) {
 
     const page = (data ?? []) as StorageObjectRow[];
     for (const object of page) {
+      const size = getStorageObjectSize(object);
       objects.push({
         name: object.name,
-        size: getStorageObjectSize(object.metadata),
+        size: size ?? 0,
+        hasKnownSize: size !== null,
       });
     }
 
@@ -521,7 +628,7 @@ async function getStorageObjects(fallbackSupabase?: SupabaseClient) {
 
 function createStorageSupabaseClient() {
   try {
-    return createServiceRoleSupabaseClient();
+    return createServiceRoleSupabaseClient() as unknown as SupabaseClient;
   } catch (error) {
     console.error("Failed to create service role client for storage usage", {
       message: error instanceof Error ? error.message : "Unknown error",
@@ -530,7 +637,7 @@ function createStorageSupabaseClient() {
   }
 }
 
-function buildStorageUsage(objects: Array<{ name: string; size: number }>): AdminStorageUsage {
+function buildStorageUsage(objects: StorageObject[]): AdminStorageUsage {
   const usedBytes = objects.reduce((sum, object) => sum + object.size, 0);
   const limitBytes = getConfiguredStorageLimitBytes();
   const freeBytes = limitBytes === null ? null : Math.max(0, limitBytes - usedBytes);
@@ -545,12 +652,12 @@ function buildStorageUsage(objects: Array<{ name: string; size: number }>): Admi
     limitBytes,
     usagePercent,
     objectCount: objects.length,
-    isApproximate: objects.length >= STORAGE_OBJECT_SCAN_LIMIT || limitBytes === null,
+    isApproximate: objects.some((object) => !object.hasKnownSize) || limitBytes === null,
     note:
       limitBytes === null
         ? "Лимит берётся из SUPABASE_STORAGE_LIMIT_BYTES или SUPABASE_STORAGE_LIMIT_GB."
-        : objects.length >= STORAGE_OBJECT_SCAN_LIMIT
-          ? "Показаны данные по первым объектам storage."
+        : objects.some((object) => !object.hasKnownSize)
+          ? "Для части объектов storage не удалось определить размер."
           : null,
   };
 }
@@ -790,19 +897,56 @@ function getNestedCount(value: EventRow["photos"]) {
   return Number(value.count ?? 0);
 }
 
-function getStorageObjectSize(metadata: Record<string, unknown> | null) {
-  if (!metadata) return 0;
+function isStorageFolder(item: StorageListItem) {
+  return item.id === null && !item.metadata;
+}
 
-  for (const key of ["size", "contentLength", "content_length", "Content-Length"]) {
-    const size = metadata[key];
-    if (typeof size === "number" && Number.isFinite(size)) return size;
-    if (typeof size === "string") {
-      const parsed = Number(size);
-      if (Number.isFinite(parsed)) return parsed;
+function getStorageObjectSize(object: {
+  size?: unknown;
+  file_size?: unknown;
+  metadata?: Record<string, unknown> | null;
+}) {
+  for (const value of [object.size, object.file_size]) {
+    const size = normalizeStorageSizeValue(value);
+    if (size !== null) return size;
+  }
+
+  return getStorageMetadataSize(object.metadata);
+}
+
+function getStorageMetadataSize(metadata: Record<string, unknown> | null | undefined): number | null {
+  if (!metadata) return null;
+
+  for (const key of [
+    "size",
+    "file_size",
+    "fileSize",
+    "contentLength",
+    "content_length",
+    "Content-Length",
+  ]) {
+    const size = normalizeStorageSizeValue(metadata[key]);
+    if (size !== null) return size;
+  }
+
+  for (const value of Object.values(metadata)) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const size = getStorageMetadataSize(value as Record<string, unknown>);
+      if (size !== null) return size;
     }
   }
 
-  return 0;
+  return null;
+}
+
+function normalizeStorageSizeValue(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  }
+
+  return null;
 }
 
 function getConfiguredStorageLimitBytes() {
