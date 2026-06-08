@@ -164,6 +164,21 @@ export type Database = {
           updated_at?: string;
         };
       };
+      live_screen_launches: {
+        Row: {
+          id: string;
+          event_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: never;
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

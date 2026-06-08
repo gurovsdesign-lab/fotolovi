@@ -107,12 +107,21 @@ create table if not exists public.premium_requests (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.live_screen_launches (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists events_user_id_idx on public.events(user_id);
 create index if not exists events_slug_idx on public.events(slug);
 create index if not exists photos_event_id_idx on public.photos(event_id);
 create index if not exists credits_user_id_idx on public.credits(user_id);
 create index if not exists premium_requests_user_id_idx on public.premium_requests(user_id);
 create index if not exists premium_requests_status_created_at_idx on public.premium_requests(status, created_at desc);
+create index if not exists live_screen_launches_event_id_created_at_idx on public.live_screen_launches(event_id, created_at desc);
+create index if not exists live_screen_launches_user_id_created_at_idx on public.live_screen_launches(user_id, created_at desc);
 
 create or replace function public.touch_updated_at()
 returns trigger
@@ -208,12 +217,15 @@ alter table public.events enable row level security;
 alter table public.photos enable row level security;
 alter table public.credit_transactions enable row level security;
 alter table public.premium_requests enable row level security;
+alter table public.live_screen_launches enable row level security;
 
 grant usage on schema public to anon, authenticated;
 grant select on table public.profiles to authenticated;
 grant select, insert, update on table public.credits to authenticated;
 grant select, insert on table public.credit_transactions to authenticated;
 grant select, insert, update on table public.premium_requests to authenticated;
+grant insert on table public.live_screen_launches to anon, authenticated;
+grant select, insert on table public.live_screen_launches to authenticated;
 grant select on table public.events to anon, authenticated;
 grant select, insert on table public.photos to anon, authenticated;
 grant update, delete on table public.photos to authenticated;
@@ -222,6 +234,7 @@ grant select on table public.profiles to service_role;
 grant select, insert, update on table public.credits to service_role;
 grant select, insert on table public.credit_transactions to service_role;
 grant select, insert, update on table public.premium_requests to service_role;
+grant select, insert on table public.live_screen_launches to service_role;
 grant select on table public.events to service_role;
 grant select, delete on table public.photos to service_role;
 revoke execute on function public.debit_current_user_credit(text) from public;
@@ -274,6 +287,23 @@ create policy "premium requests admin update"
 on public.premium_requests for update
 using (public.is_admin())
 with check (public.is_admin());
+
+drop policy if exists "live screen launches admin read" on public.live_screen_launches;
+create policy "live screen launches admin read"
+on public.live_screen_launches for select
+using (public.is_admin());
+
+drop policy if exists "live screen launches public insert" on public.live_screen_launches;
+create policy "live screen launches public insert"
+on public.live_screen_launches for insert
+with check (
+  exists (
+    select 1
+    from public.events
+    where events.id = live_screen_launches.event_id
+      and events.user_id = live_screen_launches.user_id
+  )
+);
 
 drop policy if exists "events owner insert" on public.events;
 create policy "events owner insert"

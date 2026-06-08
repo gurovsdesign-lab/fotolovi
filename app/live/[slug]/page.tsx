@@ -1,5 +1,6 @@
 import { LiveScreen } from "@/components/live/LiveScreen";
 import { getLiveScreenPhotos } from "@/features/live/queries";
+import { recordLiveScreenLaunch } from "@/features/live/metrics";
 import { ensureCompletedEventPhotosCleanup } from "@/features/photos/cleanup";
 import { getEventLifecycle, getEventStatusLabel, getLiveLifecycleMessage } from "@/lib/eventStatus";
 import { createServerSupabaseClient } from "@/lib/supabaseServer";
@@ -33,6 +34,8 @@ export default async function LivePage({ params }: { params: Promise<{ slug: str
       />
     );
   }
+
+  await recordLiveScreenLaunch(event.id, event.user_id);
 
   return (
     <LiveScreen
