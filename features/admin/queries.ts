@@ -65,6 +65,11 @@ type StorageObject = {
   hasKnownSize: boolean;
 };
 
+type StorageObjectResult = {
+  objects: StorageObject[];
+  source: "storage api" | "rpc fallback" | "storage schema fallback";
+};
+
 type StorageListItem = {
   name: string;
   id?: string | null;
@@ -259,7 +264,7 @@ export async function getAdminUserDetail(
   const from = (page - 1) * ADMIN_USER_PHOTO_PAGE_SIZE;
   const to = from + ADMIN_USER_PHOTO_PAGE_SIZE - 1;
 
-  const [profileResult, credits, events, storageObjects] = await Promise.all([
+  const [profileResult, credits, events, storageObjectsResult] = await Promise.all([
     supabase
       .from("profiles")
       .select("id,email,role,created_at")
@@ -297,7 +302,11 @@ export async function getAdminUserDetail(
       ...profileRow,
       photo_count: photoCount,
     },
-    storage: buildStorageUsage(storageObjects.filter((object) => eventIds.some((id) => object.name.startsWith(`${id}/`)))),
+    storage: buildStorageUsage(
+      storageObjectsResult.objects.filter((object) =>
+        eventIds.some((id) => object.name.startsWith(`${id}/`)),
+      ),
+    ),
     liveLaunchCount: liveLaunches.total,
     events: eventRows,
     photos: {
@@ -504,24 +513,36 @@ async function getLiveLaunchCounts(supabase: SupabaseClient, userId: string) {
 }
 
 async function getStorageUsage(supabase: SupabaseClient): Promise<AdminStorageUsage> {
-  return buildStorageUsage(await getStorageObjects(supabase));
+  const result = await getStorageObjects(supabase);
+  logStorageUsageDebug(result);
+  return buildStorageUsage(result.objects);
 }
 
-async function getStorageObjects(fallbackSupabase?: SupabaseClient) {
+async function getStorageObjects(fallbackSupabase?: SupabaseClient): Promise<StorageObjectResult> {
   const supabase = createStorageSupabaseClient() ?? fallbackSupabase;
 
-  if (!supabase) return [];
+  if (!supabase) return { objects: [], source: "storage api" };
 
   const storageApiResult = await getStorageObjectsFromStorageApi(supabase);
-  if (!storageApiResult.hasUnknownSize) return storageApiResult.objects;
+  if (
+    storageApiResult.objects.length > 0 &&
+    !storageApiResult.hasUnknownSize &&
+    sumStorageObjectBytes(storageApiResult.objects) > 0
+  ) {
+    return { objects: storageApiResult.objects, source: "storage api" };
+  }
 
   const rpcObjects = await getStorageObjectsFromRpc(supabase);
-  if (rpcObjects.length) return rpcObjects;
+  if (rpcObjects.length && sumStorageObjectBytes(rpcObjects) > 0) {
+    return { objects: rpcObjects, source: "rpc fallback" };
+  }
 
   const exposedSchemaObjects = await getStorageObjectsFromExposedStorageSchema(supabase);
-  if (exposedSchemaObjects.length) return exposedSchemaObjects;
+  if (exposedSchemaObjects.length) {
+    return { objects: exposedSchemaObjects, source: "storage schema fallback" };
+  }
 
-  return storageApiResult.objects;
+  return { objects: storageApiResult.objects, source: "storage api" };
 }
 
 async function getStorageObjectsFromStorageApi(supabase: SupabaseClient) {
@@ -535,7 +556,9 @@ async function getStorageObjectsFromStorageApi(supabase: SupabaseClient) {
     if (visitedPrefixes.has(prefix)) continue;
     visitedPrefixes.add(prefix);
 
-    for (let offset = 0; ; offset += STORAGE_OBJECT_PAGE_SIZE) {
+    const pageSignatures = new Set<string>();
+
+    for (let offset = 0; ; ) {
       const { data, error } = await supabase.storage.from(PHOTO_BUCKET).list(prefix, {
         limit: STORAGE_OBJECT_PAGE_SIZE,
         offset,
@@ -548,6 +571,21 @@ async function getStorageObjectsFromStorageApi(supabase: SupabaseClient) {
       }
 
       const page = ((data ?? []) as StorageListItem[]).filter((item) => item.name);
+      if (!page.length) break;
+
+      const pageSignature = page.map((item) => `${item.id ?? "folder"}:${item.name}`).join("|");
+      if (pageSignatures.has(pageSignature)) {
+        console.warn("Stopped repeated storage api page while calculating admin storage usage", {
+          bucket: PHOTO_BUCKET,
+          prefix,
+          offset,
+          pageSize: page.length,
+        });
+        hasUnknownSize = true;
+        break;
+      }
+      pageSignatures.add(pageSignature);
+
       for (const item of page) {
         const name = prefix ? `${prefix}/${item.name}` : item.name;
 
@@ -566,7 +604,7 @@ async function getStorageObjectsFromStorageApi(supabase: SupabaseClient) {
         });
       }
 
-      if (page.length < STORAGE_OBJECT_PAGE_SIZE) break;
+      offset += page.length;
     }
   }
 
@@ -660,6 +698,19 @@ function buildStorageUsage(objects: StorageObject[]): AdminStorageUsage {
           ? "Для части объектов storage не удалось определить размер."
           : null,
   };
+}
+
+function logStorageUsageDebug(result: StorageObjectResult) {
+  console.info("Admin storage usage calculated", {
+    bucket: PHOTO_BUCKET,
+    source: result.source,
+    fileCount: result.objects.length,
+    summedBytes: sumStorageObjectBytes(result.objects),
+  });
+}
+
+function sumStorageObjectBytes(objects: StorageObject[]) {
+  return objects.reduce((sum, object) => sum + object.size, 0);
 }
 
 async function getExactCount(
