@@ -16,6 +16,14 @@ export function createMarketingMetadata(route: MarketingRoute): Metadata {
     alternates: {
       canonical,
     },
+    robots: {
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true,
+      },
+    },
     openGraph: {
       title,
       description: description || DEFAULT_DESCRIPTION,

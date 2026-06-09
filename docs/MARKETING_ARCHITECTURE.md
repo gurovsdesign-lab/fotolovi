@@ -18,6 +18,8 @@ The current implementation intentionally renders placeholders only:
 - OpenGraph/Twitter metadata foundation;
 - related links from the internal linking graph;
 - static params for SSG-ready SEO routes;
+- `noindex, follow` metadata for every placeholder route;
+- empty sitemap until a marketing route is promoted to a real, indexable page;
 - no final copy, hero sections, animations, or visual redesign.
 
 ## Product Route Protection

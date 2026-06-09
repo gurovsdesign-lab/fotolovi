@@ -593,6 +593,8 @@ export const MARKETING_INTERNAL_LINKS: MarketingLink[] = [
   { from: "/ideas/wow-effects/", to: "/wedding/wow-effects/", reason: "Связать общий wow-интент со свадебным." },
 ];
 
+export const MARKETING_READY_ROUTES: MarketingRoute[] = [];
+
 export function normalizeMarketingPath(path: string) {
   if (path === "") return "/";
   const withLeadingSlash = path.startsWith("/") ? path : `/${path}`;
