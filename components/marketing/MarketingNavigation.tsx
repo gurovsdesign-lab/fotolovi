@@ -4,70 +4,92 @@ import styles from "./MarketingExperience.module.css";
 
 const navigationGroups = [
   {
-    label: "Возможности",
+    label: "Свадьбы",
     columns: [
       {
-        title: "Сбор фотографий",
+        title: "Сценарии",
         items: [
-          { href: "/photo/guest-photo-collection/", label: "Сбор фото гостей", description: "Один QR вместо чатов и облачных папок" },
-          { href: "/wedding/qr-photo-album/", label: "QR-альбом для свадьбы", description: "Свадебные фотографии без приложения" },
-          { href: "/screen/what-to-show-on-wedding-projector/", label: "Экран и проектор", description: "Что показывать гостям во время вечера" },
+          { href: "/wedding/", label: "Свадебный раздел", description: "QR, экран и гостевые фото как часть вечера" },
+          { href: "/ideas/wedding/", label: "Идеи для свадьбы", description: "Как встроить цифровой слой без лишнего шума" },
+          { href: "/screen/wedding-screen-ideas/", label: "Экран на свадьбе", description: "Когда показывать фото гостей и QR" },
         ],
       },
       {
-        title: "Контроль доступа",
+        title: "Материалы",
         items: [
-          { href: "/qr/no-app/", label: "Загрузка без приложения", description: "Гость открывает браузер и отправляет фото" },
-          { href: "/no-app/guest-upload-without-registration/", label: "Без регистрации гостей", description: "Минимум действий для людей на площадке" },
-          { href: "/photo/live-gallery/", label: "Живая галерея", description: "Фотографии собираются во время события" },
+          { href: "/screen/what-to-show-on-wedding-projector/", label: "Что показать на проекторе", description: "Приветствие, QR, фото и финальный экран" },
+          { href: "/alternatives/google-drive-telegram/", label: "Чат или QR-сценарий", description: "Почему общий чат плохо собирает кадры" },
+          { href: "/hosts/", label: "Для ведущего", description: "Как объявить механику одной фразой" },
         ],
       },
     ],
-    feature: "QR, экран, доступ гостей и модерация работают как один сценарий мероприятия.",
-  },
-  {
-    label: "Для кого",
-    columns: [
-      {
-        title: "События",
-        items: [
-          { href: "/wedding/", label: "Свадьбы", description: "Фото гостей, приветственная зона и экран" },
-          { href: "/events/corporate/", label: "Корпоративы", description: "Закрытый доступ и контроль показа" },
-          { href: "/events/photo-gallery/", label: "Мероприятия", description: "Общий альбом для гостей и организатора" },
-        ],
-      },
-      {
-        title: "Профессионалы",
-        items: [
-          { href: "/hosts/", label: "Ведущие", description: "Простая механика со сцены" },
-          { href: "/hosts/interactives/", label: "Интерактивы", description: "Фотоактивности без сложной подготовки" },
-          { href: "/hosts/screen/", label: "Экран ведущего", description: "Показ фотографий в нужный момент" },
-        ],
-      },
-    ],
-    feature: "Сервис должен объясняться одной фразой, потому что на событии нет времени на инструктаж.",
+    feature: "Свадебный раздел собирает не страницы возможностей, а редакционные сценарии вокруг живого экрана и участия гостей.",
   },
   {
     label: "Идеи",
     columns: [
       {
-        title: "Материалы",
+        title: "Вдохновение",
         items: [
-          { href: "/ideas/wedding/", label: "Идеи для свадьбы", description: "Как встроить QR и экран в вечер" },
-          { href: "/ideas/projector/", label: "Идеи для проектора", description: "Сценарии показа на экране" },
-          { href: "/alternatives/google-drive-telegram/", label: "Сравнение способов", description: "Чаты, облака и QR-альбом" },
+          { href: "/ideas/wedding/", label: "Цифровой слой свадьбы", description: "Идеи, которые не спорят с программой" },
+          { href: "/screen/wedding-screen-ideas/", label: "Идеи для экрана", description: "Как экран становится частью вечера" },
+          { href: "/wedding/", label: "Свадебная экосистема", description: "Контентный вход в сценарии вечера" },
         ],
       },
       {
-        title: "Вдохновение",
+        title: "Сравнения",
         items: [
-          { href: "/wedding/welcome/", label: "Приветственный сценарий", description: "QR в зоне встречи гостей" },
-          { href: "/wedding/wow-effects/", label: "Вау-эффекты", description: "Как удивить гостей без лишнего шума" },
-          { href: "/ideas/guest-entertainment/", label: "Развлечения гостей", description: "Фото как участие в программе" },
+          { href: "/alternatives/google-drive-telegram/", label: "Чаты и облака", description: "Когда привычные инструменты создают трение" },
+          { href: "/screen/what-to-show-on-wedding-projector/", label: "Проектор без слайд-шоу", description: "Как сделать экран живым" },
+          { href: "/hosts/", label: "Интерактив для ведущего", description: "Как удержать механику простой" },
         ],
       },
     ],
-    feature: "Статьи не заменяют продуктовую страницу, а помогают собрать хороший сценарий вечера.",
+    feature: "Идеи помогают спроектировать вечер. ФотоЛови появляется внутри контекста, а не заменяет собой материал.",
+  },
+  {
+    label: "Проектор",
+    columns: [
+      {
+        title: "Экранные сценарии",
+        items: [
+          { href: "/screen/what-to-show-on-wedding-projector/", label: "Что показывать", description: "Сценарий экрана до, во время и после программы" },
+          { href: "/screen/wedding-screen-ideas/", label: "Идеи для live screen", description: "Как удержать экран живым и спокойным" },
+          { href: "/ideas/wedding/", label: "Экран внутри свадьбы", description: "Как не спорить с ритмом вечера" },
+        ],
+      },
+      {
+        title: "Механики",
+        items: [
+          { href: "/hosts/", label: "Для ведущего", description: "Как объявить механику одной фразой" },
+          { href: "/alternatives/google-drive-telegram/", label: "Почему не общий чат", description: "Где теряются фотографии гостей" },
+          { href: "/wedding/", label: "Свадебный сценарий", description: "QR, экран и гости в одном вечернем ритме" },
+        ],
+      },
+    ],
+    feature: "Проектор — главный эмоциональный слой продукта: фотографии появляются там, где их видят гости.",
+  },
+  {
+    label: "Ведущим",
+    columns: [
+      {
+        title: "Программа",
+        items: [
+          { href: "/hosts/", label: "Фото-интерактив", description: "Как встроить QR и экран в ход вечера" },
+          { href: "/screen/wedding-screen-ideas/", label: "Экранные моменты", description: "Когда выводить гостевые фотографии" },
+          { href: "/ideas/wedding/", label: "Фото-задания", description: "Поводы, которые легко объявить со сцены" },
+        ],
+      },
+      {
+        title: "Контроль",
+        items: [
+          { href: "/screen/wedding-screen-ideas/", label: "Паузы и экран", description: "Когда показывать гостевые фото" },
+          { href: "/ideas/wedding/", label: "Фото-задания", description: "Простые поводы для гостей" },
+          { href: "/alternatives/google-drive-telegram/", label: "Почему не чат", description: "Аргументы для организатора" },
+        ],
+      },
+    ],
+    feature: "Для ведущего важна механика, которую можно объяснить быстро и держать под контролем на экране.",
   },
 ];
 
@@ -101,6 +123,9 @@ export function MarketingNavigation() {
             </div>
           </details>
         ))}
+        <Link href="/#faq" className={styles.navLink}>
+          FAQ
+        </Link>
       </nav>
       <div className={styles.navActions}>
         <Link href="/login" className={styles.buttonSecondary}>
@@ -115,9 +140,10 @@ export function MarketingNavigation() {
         <div className={styles.mobilePanel}>
           <Link href="/">Главная</Link>
           <Link href="/wedding">Свадьбы</Link>
-          <Link href="/photo/guest-photo-collection">Сбор фото</Link>
-          <Link href="/hosts">Для ведущих</Link>
           <Link href="/ideas/wedding">Идеи</Link>
+          <Link href="/screen/wedding-screen-ideas">Проектор</Link>
+          <Link href="/hosts">Ведущим</Link>
+          <Link href="/#faq">FAQ</Link>
           <Link href="/register">Создать мероприятие</Link>
         </div>
       </details>

@@ -18,7 +18,7 @@ export function MarketingPageRenderer({ page, route }: MarketingPageRendererProp
     return <ArticlePage page={page} route={route} />;
   }
 
-  return <StructuredPage page={page} route={route} />;
+  return <HubPage page={page} route={route} />;
 }
 
 function HomePage({ page }: { page: MarketingPage }) {
@@ -29,20 +29,36 @@ function HomePage({ page }: { page: MarketingPage }) {
       <SectionSet page={page} />
       {page.specs ? <SpecSheet specs={page.specs} /> : null}
       <Pricing />
-      <CtaBand title="Первое мероприятие можно проверить спокойно" body="Создайте тестовый запуск, покажите QR небольшой группе и посмотрите, как гости добавляют фотографии без приложения." cta="Создать мероприятие" />
+      {page.faq ? <Faq items={page.faq} /> : null}
+      <CtaBand title="Проверьте live screen на своём событии" body="Создайте мероприятие, покажите QR на экране и посмотрите, как гости превращают свои телефоны в общий поток момента." cta="Создать мероприятие" />
       <RelatedLinks paths={page.related ?? []} />
     </main>
   );
 }
 
-function StructuredPage({ page }: MarketingPageRendererProps) {
+function HubPage({ page }: MarketingPageRendererProps) {
   return (
-    <main className={styles.main}>
-      <Hero page={page} compact />
-      {page.workflow ? <Workflow sections={page.workflow} /> : null}
+    <main className={`${styles.main} ${styles.articleMain}`}>
+      <section className={styles.hubHero}>
+        <div className={styles.heroCopy}>
+          <p className={styles.eyebrow}>{page.eyebrow}</p>
+          <h1 className={styles.articleTitle}>{page.title}</h1>
+          <p className={styles.lead}>{page.description}</p>
+          <div className={styles.heroActions}>
+            <Link href="/register" className={styles.button}>
+              {page.primaryCta}
+            </Link>
+            {page.secondaryCta ? (
+              <Link href="/ideas/wedding/" className={styles.buttonSecondary}>
+                {page.secondaryCta}
+              </Link>
+            ) : null}
+          </div>
+        </div>
+        <EditorialNote title="Контентный раздел" body="Здесь собраны сценарии и идеи вокруг продукта, а не отдельная витрина функций." />
+      </section>
       <SectionSet page={page} />
-      {page.specs ? <SpecSheet specs={page.specs} /> : null}
-      <CtaBand title="Соберите фотографии без лишней логистики" body="ФотоЛови оставляет гостям простое действие, а организатору — понятный альбом, экран и настройки доступа." cta={page.primaryCta} />
+      <CtaBand title="Добавьте экран в сценарий события" body="ФотоЛови остаётся аккуратным инструментом внутри вечера: QR, live screen, модерация и архив работают рядом с программой." cta={page.primaryCta} compact />
       <RelatedLinks paths={page.related ?? []} />
     </main>
   );
@@ -50,7 +66,7 @@ function StructuredPage({ page }: MarketingPageRendererProps) {
 
 function ArticlePage({ page }: MarketingPageRendererProps) {
   return (
-    <main className={styles.main}>
+    <main className={`${styles.main} ${styles.articleMain}`}>
       <section className={styles.articleHero}>
         <div className={styles.heroCopy}>
           <p className={styles.eyebrow}>{page.eyebrow}</p>
@@ -65,7 +81,7 @@ function ArticlePage({ page }: MarketingPageRendererProps) {
             </Link>
           </div>
         </div>
-        <EventCanvas title="Общий альбом" />
+        <EditorialNote title="Гайд" body="Материал можно читать отдельно от продукта: сначала сценарий, затем аккуратный способ реализовать его на событии." />
       </section>
 
       <section className={styles.articleShell}>
@@ -93,7 +109,7 @@ function ArticlePage({ page }: MarketingPageRendererProps) {
           <blockquote className={styles.quoteBlock}>
             Хорошая цифровая механика не просит внимания к себе. Она помогает гостям оставить кадры и возвращается в фон.
           </blockquote>
-          <CtaBand title="ФотоЛови как аккуратный слой события" body="Отдельный QR, экран, модерация и скачивание архива живут рядом с программой вечера, не превращая праздник в технический брифинг." cta={page.primaryCta} compact />
+          <CtaBand title="ФотоЛови как аккуратный слой события" body="QR, live screen, модерация и архив помогают реализовать сценарий из статьи, не превращая праздник в технический брифинг." cta={page.primaryCta} compact />
         </article>
       </section>
       <RelatedLinks paths={page.related ?? []} />
@@ -157,8 +173,8 @@ function Workflow({ sections }: { sections: NonNullable<MarketingPage["workflow"
   return (
     <section className={styles.section}>
       <div className={styles.sectionHeader}>
-        <h2>Сценарий проходит по вечеру</h2>
-        <p>Страница не начинается с панели настроек. Сначала есть событие, гости и экран, который помогает собрать моменты.</p>
+        <h2>Как это работает во время события</h2>
+        <p>Сначала есть зал, гости и экран. Техническая механика появляется только там, где помогает людям участвовать.</p>
       </div>
       <div className={styles.workflow}>
         {sections.map((section, index) => (
@@ -184,8 +200,8 @@ function SectionSet({ page }: { page: MarketingPage }) {
   return (
     <section className={styles.section}>
       <div className={styles.sectionHeader}>
-        <h2>{page.kind === "home" ? "Что получает организатор" : "Как это устроено"}</h2>
-        <p>Короткие сценарии вместо тяжёлой презентации возможностей. Каждая настройка появляется там, где она помогает событию.</p>
+        <h2>{page.kind === "home" ? "Что получает событие" : "Материалы внутри раздела"}</h2>
+        <p>{page.kind === "home" ? "Возможности остаются внутри одной продуктовой истории: экран, QR, гости, модерация и архив работают как один вечерний сценарий." : "Эти блоки помогают собрать сценарий, а не продают отдельную функцию как самостоятельную страницу."}</p>
       </div>
       <div className={styles.asymmetricGrid}>
         {page.sections.map((section) => (
@@ -210,8 +226,8 @@ function SpecSheet({ specs }: { specs: NonNullable<MarketingPage["specs"]> }) {
   return (
     <section className={styles.section}>
       <div className={styles.sectionHeader}>
-        <h2>Возможности без витрины функций</h2>
-        <p>ФотоЛови продаёт не отдельные кнопки, а понятный запуск мероприятия: QR, экран, доступ, модерация и архив.</p>
+        <h2>Основные возможности внутри одного запуска</h2>
+        <p>ФотоЛови не дробит историю на отдельные страницы возможностей: продукт ценен как цельный live event experience.</p>
       </div>
       <div className={styles.specSheet}>
         {specs.map((spec) => (
@@ -222,6 +238,34 @@ function SpecSheet({ specs }: { specs: NonNullable<MarketingPage["specs"]> }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function Faq({ items }: { items: NonNullable<MarketingPage["faq"]> }) {
+  return (
+    <section id="faq" className={styles.section}>
+      <div className={styles.sectionHeader}>
+        <h2>FAQ</h2>
+        <p>Короткие ответы на вопросы, которые возникают до первого запуска.</p>
+      </div>
+      <div className={styles.faqGrid}>
+        {items.map((item) => (
+          <article key={item.question} className={styles.card}>
+            <h3>{item.question}</h3>
+            <p>{item.answer}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function EditorialNote({ title, body }: { title: string; body: string }) {
+  return (
+    <aside className={styles.editorialNote}>
+      <span>{title}</span>
+      <p>{body}</p>
+    </aside>
   );
 }
 

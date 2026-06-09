@@ -17,12 +17,14 @@ export function MarketingLayout({ children }: { children: ReactNode }) {
       {children}
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
-          <p className={styles.footerStatement}>Событие проходит один раз. Фотографии должны остаться.</p>
+          <p className={styles.footerStatement}>Событие идёт сейчас. Экран должен жить вместе с ним.</p>
           <div className={styles.footerMeta}>
             <span>ФотоЛови</span>
             <div className={styles.footerLinks}>
               <Link href="/wedding">Свадьбы</Link>
-              <Link href="/hosts">Для ведущих</Link>
+              <Link href="/ideas/wedding">Идеи</Link>
+              <Link href="/screen/wedding-screen-ideas">Проектор</Link>
+              <Link href="/hosts">Ведущим</Link>
               <Link href="/privacy">Конфиденциальность</Link>
               <Link href="/login">Войти</Link>
             </div>
