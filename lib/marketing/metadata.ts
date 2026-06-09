@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
+import { getMarketingPage, isReadyMarketingRoute } from "./content";
 import { getMarketingUrl, type MarketingRoute, SITE_ORIGIN } from "./routes";
 
 const DEFAULT_DESCRIPTION =
-  "FotoLovi помогает гостям загружать фото по QR-коду, собирает их в живую галерею и показывает на экране мероприятия.";
+  "ФотоЛови помогает гостям загружать фото по QR-коду, собирает их в живую галерею и показывает на экране мероприятия.";
 
 export function createMarketingMetadata(route: MarketingRoute): Metadata {
   const canonical = getMarketingUrl(route.path);
+  const page = getMarketingPage(route.path);
+  const isReady = isReadyMarketingRoute(route);
   const title = route.path === "/" ? "ФотоЛови" : `${route.title} | ФотоЛови`;
-  const description = `${route.intent}. Страница готовится в рамках SEO-архитектуры FotoLovi.`;
+  const description = page?.description ?? `${route.intent}. Страница готовится в архитектуре сайта ФотоЛови.`;
 
   return {
     metadataBase: new URL(SITE_ORIGIN),
@@ -17,10 +20,10 @@ export function createMarketingMetadata(route: MarketingRoute): Metadata {
       canonical,
     },
     robots: {
-      index: false,
+      index: isReady,
       follow: true,
       googleBot: {
-        index: false,
+        index: isReady,
         follow: true,
       },
     },

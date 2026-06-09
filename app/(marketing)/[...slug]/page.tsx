@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MarketingPlaceholderPage } from "@/components/marketing/MarketingPlaceholderPage";
+import { MarketingPageRenderer } from "@/components/marketing/MarketingPageRenderer";
+import { getMarketingPage } from "@/lib/marketing/content";
 import { createMarketingMetadata } from "@/lib/marketing/metadata";
 import {
   getMarketingPathFromSegments,
@@ -35,5 +37,7 @@ export default async function MarketingSeoPage({ params }: MarketingPageParams) 
     notFound();
   }
 
-  return <MarketingPlaceholderPage route={route} />;
+  const page = getMarketingPage(route.path);
+
+  return page ? <MarketingPageRenderer route={route} page={page} /> : <MarketingPlaceholderPage route={route} />;
 }

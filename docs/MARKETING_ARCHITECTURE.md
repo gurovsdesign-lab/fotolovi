@@ -1,6 +1,6 @@
 # Marketing Architecture
 
-FotoLovi keeps the marketing website and the product application in one Next.js app and on one domain.
+ФотоЛови keeps the marketing website and the product application in one Next.js app and on one domain.
 
 ## Routing Layers
 
@@ -12,15 +12,26 @@ FotoLovi keeps the marketing website and the product application in one Next.js 
 
 Marketing pages are rendered from `lib/marketing/routes.ts`, which is based on the SEO architecture files in `SEO/`.
 
-The current implementation intentionally renders placeholders only:
+The current implementation now has two marketing states:
 
-- page metadata and canonical URL foundation;
-- OpenGraph/Twitter metadata foundation;
-- related links from the internal linking graph;
-- static params for SSG-ready SEO routes;
-- `noindex, follow` metadata for every placeholder route;
-- empty sitemap until a marketing route is promoted to a real, indexable page;
-- no final copy, hero sections, animations, or visual redesign.
+- ready pages: full marketing content, indexable metadata, sitemap inclusion;
+- placeholder routes: reserved routing, internal links, `noindex, follow`, no sitemap inclusion.
+
+The first production marketing pages are:
+
+- `/`
+- `/wedding`
+- `/wedding/qr-photo-album`
+- `/photo/guest-photo-collection`
+- `/hosts`
+- `/ideas/wedding`
+- `/screen/what-to-show-on-wedding-projector`
+- `/screen/wedding-screen-ideas`
+- `/alternatives/google-drive-telegram`
+
+The visual system lives in `components/marketing/MarketingExperience.module.css` and is scoped to the marketing shell.
+It uses the local Hallmark workflow: atmospheric genre, Narrative Workflow macrostructure, N11 mega-menu, Ft5 statement footer,
+reusable article layout, reusable CTA bands, category navigation, and token-led styling.
 
 ## Product Route Protection
 

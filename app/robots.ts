@@ -1,15 +1,16 @@
 import type { MetadataRoute } from "next";
-import { SITE_ORIGIN } from "@/lib/marketing/routes";
+import { isReadyMarketingRoute } from "@/lib/marketing/content";
+import { getMarketingHref, MARKETING_ROUTES, SITE_ORIGIN } from "@/lib/marketing/routes";
 
 export default function robots(): MetadataRoute.Robots {
+  const readyMarketingPaths = MARKETING_ROUTES.filter(isReadyMarketingRoute).map((route) =>
+    getMarketingHref(route.path),
+  );
+
   return {
     rules: {
       userAgent: "*",
-      allow: [
-        "/",
-        "/screen/what-to-show-on-wedding-projector",
-        "/screen/wedding-screen-ideas",
-      ],
+      allow: readyMarketingPaths,
       disallow: [
         "/api",
         "/admin",

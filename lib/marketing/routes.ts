@@ -37,7 +37,7 @@ export const MARKETING_ROUTES: MarketingRoute[] = [
     parentPath: null,
     level: 0,
     pageType: "главная страница",
-    intent: "Вход в продукт FotoLovi как экосистему свадебных и мероприятие-медиа",
+    intent: "Вход в продукт ФотоЛови как экосистему свадебных и мероприятие-медиа",
     priority: "P0",
   },
   {
@@ -244,7 +244,7 @@ export const MARKETING_ROUTES: MarketingRoute[] = [
     parentPath: "/",
     level: 1,
     pageType: "хаб",
-    intent: "Фото гостей как эмоциональное ядро FotoLovi",
+    intent: "Фото гостей как эмоциональное ядро ФотоЛови",
     priority: "P0",
   },
   {
@@ -379,7 +379,7 @@ export const MARKETING_ROUTES: MarketingRoute[] = [
     parentPath: "/",
     level: 1,
     pageType: "хаб",
-    intent: "Инструменты FotoLovi для ведущих",
+    intent: "Инструменты ФотоЛови для ведущих",
     priority: "P1",
   },
   {
@@ -433,7 +433,7 @@ export const MARKETING_ROUTES: MarketingRoute[] = [
     parentPath: "/",
     level: 1,
     pageType: "сравнительный хаб",
-    intent: "Сравнить FotoLovi с привычными способами сбора фото",
+    intent: "Сравнить ФотоЛови с привычными способами сбора фото",
     priority: "P1",
   },
   {
@@ -451,7 +451,7 @@ export const MARKETING_ROUTES: MarketingRoute[] = [
     parentPath: "/alternatives/",
     level: 2,
     pageType: "сравнительная страница",
-    intent: "Сравнить сбор фото через облака, чаты и FotoLovi",
+    intent: "Сравнить сбор фото через облака, чаты и ФотоЛови",
     priority: "P1",
   },
   {
@@ -539,7 +539,7 @@ export const MARKETING_ROUTES: MarketingRoute[] = [
 
 export const MARKETING_INTERNAL_LINKS: MarketingLink[] = [
   { from: "/", to: "/wedding/", reason: "Передать главный вес в свадебный кластер." },
-  { from: "/", to: "/photo/", reason: "Показать фото как эмоциональное ядро FotoLovi." },
+  { from: "/", to: "/photo/", reason: "Показать фото как эмоциональное ядро ФотоЛови." },
   { from: "/", to: "/no-app/", reason: "Вынести ключевое отличие: загрузка без приложения." },
   { from: "/", to: "/wedding/qr-photo-album/", reason: "Короткий путь к свадебной QR-странице." },
   { from: "/wedding/", to: "/wedding/guest-photos/", reason: "Перевести свадебный спрос в фото гостей." },
@@ -592,8 +592,6 @@ export const MARKETING_INTERNAL_LINKS: MarketingLink[] = [
   { from: "/ideas/projector/", to: "/screen/what-to-show-on-wedding-projector/", reason: "Связать идеи проектора с экранным интентом." },
   { from: "/ideas/wow-effects/", to: "/wedding/wow-effects/", reason: "Связать общий wow-интент со свадебным." },
 ];
-
-export const MARKETING_READY_ROUTES: MarketingRoute[] = [];
 
 export function normalizeMarketingPath(path: string) {
   if (path === "") return "/";

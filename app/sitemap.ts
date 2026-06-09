@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
-import { getMarketingUrl, MARKETING_READY_ROUTES } from "@/lib/marketing/routes";
+import { isReadyMarketingRoute } from "@/lib/marketing/content";
+import { getMarketingUrl, MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 const priorityBySeoPriority = {
   P0: 0.9,
@@ -10,7 +11,7 @@ const priorityBySeoPriority = {
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
 
-  return MARKETING_READY_ROUTES.map((route) => ({
+  return MARKETING_ROUTES.filter(isReadyMarketingRoute).map((route) => ({
     url: getMarketingUrl(route.path),
     lastModified: now,
     changeFrequency: route.priority === "P0" ? "weekly" : "monthly",
