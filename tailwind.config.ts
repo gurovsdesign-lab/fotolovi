@@ -15,6 +15,13 @@ const config: Config = {
         action: "#4A6CF7",
         gold: "#D6B36A",
         night: "#121212",
+        "ml-accent": "var(--ml-accent)",
+        "ml-bg": "var(--ml-bg)",
+        "ml-focus": "var(--ml-focus)",
+        "ml-ink": "var(--ml-ink)",
+        "ml-line": "var(--ml-line)",
+        "ml-muted": "var(--ml-muted)",
+        "ml-soft": "var(--ml-soft)",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "Inter", "sans-serif"],
