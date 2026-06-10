@@ -18,14 +18,14 @@ import {
   normalizeModerationMode,
 } from "@/lib/eventSettings";
 import { getDashboardLifecycleMessage, getEventLifecycle, isEventDateEditable } from "@/lib/eventStatus";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getBaseUrl } from "@/lib/utils";
 
 export default async function ManageEventPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
   const event = await getEventById(id, user.id);
   const photos = await getEventPhotos(id);
-  const baseUrl = "https://www.fotolovi.ru";
+  const baseUrl = getBaseUrl();
   const guestUrl = `${baseUrl}/event/${event.slug}`;
   const today = getTodayDateString();
   const lifecycle = getEventLifecycle(event.event_date);
